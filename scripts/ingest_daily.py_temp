@@ -1,0 +1,56 @@
+def fetch_odds_espn():
+    print("Fetching live MLB odds and probable pitchers...")
+    url = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            events = response.json().get('events', [])
+            manager = MLBDbManager()
+            matchups = []
+            
+            # Fetch MLB schedule with probable pitchers hydrated
+            today = datetime.now().strftime("%Y-%m-%d")
+            mlb_sched = statsapi.get('schedule', {'sportId': 1, 'date': today, 'hydrate': 'probablePitcher'})
+            
+            # Map home team short name to probable pitchers
+            probables = {}
+            for date in mlb_sched.get('dates', []):
+                for game in date.get('games', []):
+                    home_team_full = game.get('teams', {}).get('home', {}).get('team', {}).get('name', '')
+                    # Extract last word (e.g. 'Yankees', 'Sox', 'Jays')
+                    home_short = home_team_full.split(' ')[-1]
+                    
+                    probables[home_short] = {
+                        'away': game.get('teams', {}).get('away', {}).get('probablePitcher', {}).get('fullName'),
+                        'home': game.get('teams', {}).get('home', {}).get('probablePitcher', {}).get('fullName')
+                    }
+
+            for event in events:
+                comp = event['competitions'][0]
+                home_team = comp['competitors'][0]['team']['shortDisplayName']
+                away_team = comp['competitors'][1]['team']['shortDisplayName']
+                
+                odds_list = comp.get('odds', [])
+                total, hml, aml = 0.0, 0, 0
+                if odds_list:
+                    o = odds_list[0]
+                    total, hml, aml = o.get('overUnder', 0.0), o.get('homeTeamOdds', {}).get('value', 0), o.get('awayTeamOdds', {}).get('value', 0)
+                
+                gid = int(event['id'])
+                # Name-based lookup (e.g. 'Yankees' matches 'Yankees')
+                p_info = probables.get(home_team, {'home': None, 'away': None})
+
+                iprob = abs(hml)/(abs(hml)+100) if hml < 0 else 100/(hml+100) if hml > 0 else 0.5
+                manager.upsert_betting_market({
+                    "game_id": gid, "home_team": home_team, "away_team": away_team, 
+                    "home_pitcher": p_info['home'], "away_pitcher": p_info['away'], 
+                    "f5_home_moneyline": None, "f5_away_moneyline": None, "f5_total": None, 
+                    "full_game_home_moneyline": int(hml), "full_game_away_moneyline": int(aml), 
+                    "full_game_total": float(total), "implied_prob_home": iprob
+                })
+                matchups.append({"game_id": gid, "home_team": home_team})
+            print(f"Updated odds and pitchers for {len(events)} games.")
+            return matchups
+    except Exception as e:
+        print(f"Error fetching odds/pitchers: {e}")
+        return []

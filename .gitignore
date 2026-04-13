@@ -1,0 +1,42 @@
+# Secrets & Config
+.env
+.env.template
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Database
+data/*.db
+data/*.sqlite3
+
+# Machine Learning Models (Large Binaries)
+models/*.pkl
+models/*.joblib
+models/*.pt
+models/*.h5
+models/*.json
+models/*.onnx
+
+# Playwright & Scraping
+.playwright_session/
+.pytest_cache/
+test-results/
+
+# Data & Backups (Raw source files)
+data/raw/*.csv
+data/raw/*.json
+data/raw/*.xlsx
+
+# Logs & Reports
+*.log
+reports/*.png
+reports/*.html
+
+# OS specific
+.DS_Store
+Thumbs.db
