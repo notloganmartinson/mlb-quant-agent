@@ -2,7 +2,7 @@
 
 A high-performance, modular data pipeline and calculation engine designed for quantitative MLB sports betting research. This system unifies disparate data sources (MLB StatsAPI, ESPN, The Odds API) into a relational SQLite database, providing a robust infrastructure for sabermetric modeling, backtesting, and autonomous market analysis.
 
-## 🚀 Core Features
+## Core Features
 
 - **Modular "Shattered" Pipeline:** Domain-specific ingestion modules (Stats, Odds, Environment) orchestrated for maximum reliability and ease of debugging.
 - **Fail-Fast Mathematical Guardrails:** Strict `assert` statements in the statistical engine to prevent "Silent Failures" and ensure data integrity.
@@ -12,7 +12,7 @@ A high-performance, modular data pipeline and calculation engine designed for qu
 - **Unified Relational Mapping:** Centralized "Translator" architecture (`team_mappings`) resolving naming discrepancies across multiple providers.
 - **Agentic Grounding:** ReAct-based AI analyst with Dependency Injection, grounded in structured SQL data.
 
-## 🛠 Project Architecture
+## Project Architecture
 
 ```text
 mlb-agent/
@@ -47,12 +47,12 @@ mlb-agent/
 ├── requirements.txt        # System dependencies
 ├── .gitignore              # Multi-tier exclusion rules
 ├── GEMINI.md               # Token-optimized AST Repo Map for AI grounding
-├── PITFALLS.md             # Technical post-mortem and lessons learned
-├── EXPERIMENTS.md          # Comparative research results
-└── RESEARCH_NOTES.md       # In-depth analysis of refactors and self-correction
+├── pitfalls.md             # Technical post-mortem and lessons learned
+├── experiments.md          # Comparative research results
+└── research-notes.md       # In-depth analysis of refactors and self-correction
 ```
 
-## 📈 Research Workflow
+## Research Workflow
 
 ### 1. Relational Initialization
 Build the database from the centralized SQL schema.
@@ -91,7 +91,7 @@ Query the grounded AI analyst for market inefficiencies.
 python3 agent.py
 ```
 
-## 🛡 Security & Design Principles
+## Security & Design Principles
 - **Fail-Fast Boundaries:** Mathematical formulas and API calls are wrapped in strict assertions and error handlers to halt execution before data corruption occurs.
 - **Dependency Injection:** The AI agent and database managers accept configuration from the environment, decoupling logic from hardcoded paths.
 - **Context Efficiency:** The repository uses a specialized `GEMINI.md` AST map to provide high-density grounding for AI-assisted development.
