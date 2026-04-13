@@ -60,3 +60,8 @@ While "Fuzzy Matching" (Levenstein distance or string similarity) is often propo
 - **Lesson:** A backtest is only a valid research instrument if it mirrors the friction and variance of the live market.
 - **Fix:** Refactored the ingestion pipeline to fetch **Real Closing Lines** via SBR/The Odds API and replaced placeholders with **Strict Rolling Metrics**. This collapsed the ROI to a realistic professional range (2-5%), validating the model's integrity for the final research paper.
 
+### 12. LLM Context Saturation & Internal Monologue Leakage
+- **Pitfall:** During long, complex development sessions, the AI agent (Gemini) began to "leak" its internal reasoning into the terminal (e.g., outputting raw `[Thought: true]` tags or unparsed JSON blocks). This was initially mistaken for a script bug, but was actually a symptom of **Context Overload**.
+- **Lesson:** When an LLM is overwhelmed by tokens (approaching its effective context limit), its **formatting precision** degrades. It starts forgetting the strict syntax rules required to hide its internal monologue. It may forget to close a thought tag, misspell a delimiter, or output content in a way that the CLI parser fails to recognize.
+- **Fix:** This phenomenon was the primary driver for the **Comprehensive Codebase Refactor**. By shattering monolithic scripts, isolating the SQL schema, and implementing dependency injection, we reduced the per-turn context requirements. This "De-cluttering" ensures the agent has more "working memory" available for formatting and logic, effectively preventing monologue leakage and maintaining a clean, professional CLI interface.
+

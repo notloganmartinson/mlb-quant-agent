@@ -4,27 +4,29 @@ A high-performance, modular data pipeline and calculation engine designed for qu
 
 ## 🚀 Core Features
 
-- **Automated Data Pipeline:** 100% automated ingestion using official REST APIs, ensuring high data availability and reliability.
-- **Proprietary Calculation Engine:** Local computation of advanced predictive metrics (SIERA, ISO, K-BB%) to identify market inefficiencies independent of third-party providers.
-- **1:1 Mirrored ML Architecture:** Perfectly matched feature sets between live prediction tables and historical training data, enabling seamless machine learning model deployment.
-- **Unified Relational Mapping:** Centralized "Translator" architecture (`team_mappings`) resolving naming discrepancies across multiple providers to canonical MLB IDs.
-- **Sequential Feature Engineering:** Chronological data ingestion pipeline designed to eliminate "Look-Ahead Bias" (data leakage) in historical training sets.
-- **Agentic Grounding:** Implementation of a ReAct-based AI analyst grounded in structured SQL data, mitigating the risks of generative hallucination in financial modeling.
+- **Modular "Shattered" Pipeline:** Domain-specific ingestion modules (Stats, Odds, Environment) orchestrated for maximum reliability and ease of debugging.
+- **Fail-Fast Mathematical Guardrails:** Strict `assert` statements in the statistical engine to prevent "Silent Failures" and ensure data integrity.
+- **Schema Isolation:** Centralized `schema.sql` source of truth for all relational tables, separating definition from execution.
+- **Proprietary Calculation Engine:** Local computation of advanced predictive metrics (SIERA, ISO, K-BB%) to identify market inefficiencies.
+- **1:1 Mirrored ML Architecture:** Perfectly matched feature sets between live prediction tables and historical training data.
+- **Unified Relational Mapping:** Centralized "Translator" architecture (`team_mappings`) resolving naming discrepancies across multiple providers.
+- **Agentic Grounding:** ReAct-based AI analyst with Dependency Injection, grounded in structured SQL data.
 
 ## 🛠 Project Architecture
 
 ```text
 mlb-agent/
 ├── core/                   # Mathematical and Database Foundation
-│   ├── database.py         # Relational schema definitions and team seeding
-│   ├── db_manager.py       # Object-oriented CRUD and team ID resolution
-│   └── stats_calculator.py # Vectorized sabermetric regression formulas
-├── data/                   # Persistent Storage
-│   ├── raw/                # Manual data backups and external CSVs
-│   └── mlb_betting.db      # Multi-season relational SQLite database
+│   ├── schema.sql          # Centralized SQL schema (Source of Truth)
+│   ├── database.py         # Schema execution and team seeding logic
+│   ├── db_manager.py       # Object-oriented CRUD and connection management
+│   └── stats_calculator.py # Vectorized sabermetric formulas with fail-fast assertions
 ├── scripts/                # Automated Ingestion Pipeline
+│   ├── ingest/             # Shattered, domain-specific ingestion modules
+│   │   ├── stats.py        # MLB official player/team stats
+│   │   ├── odds.py         # ESPN market data and matchups
+│   │   └── environment.py  # Stadium coordinates and weather
 │   ├── ingest_historical.py# Automated 2025 season baseline ingestion
-│   ├── ingest_daily.py     # Main 2026 stats, ESPN, and weather synchronizer
 │   ├── fetch_live_odds.py  # Standalone The Odds API utility
 │   ├── fetch_historical_odds.py # SBR JSON extraction for historical lines
 │   └── generate_training_data.py # Sequential ML feature store generator
@@ -39,18 +41,21 @@ mlb-agent/
 │   └── value_finder.py     # Multi-season weighted edge comparison engine
 ├── models/                 # Serialized ML Model Weights (Ignored by Git)
 ├── reports/                # Performance Plots and P&L Graphs
-├── agent.py                # ReAct-based AI Analytical Agent
+├── agent.py                # Class-based ReAct Agent with Dependency Injection
+├── ingest_orchestrator.py  # Unified entry point for daily data ingestion
+├── test_stats_calculator.py# Unit tests for statistical formulas
 ├── requirements.txt        # System dependencies
 ├── .gitignore              # Multi-tier exclusion rules
+├── GEMINI.md               # Token-optimized AST Repo Map for AI grounding
 ├── PITFALLS.md             # Technical post-mortem and lessons learned
-├── EXPERIMENTS.md          # Comparative research results (Agent vs. Web App)
-└── RESEARCH_NOTES.md       # In-depth analysis of autonomous self-correction
+├── EXPERIMENTS.md          # Comparative research results
+└── RESEARCH_NOTES.md       # In-depth analysis of refactors and self-correction
 ```
 
 ## 📈 Research Workflow
 
 ### 1. Relational Initialization
-Establish the schema and canonical mappings required for multi-source joins.
+Build the database from the centralized SQL schema.
 ```bash
 python3 core/database.py
 ```
@@ -75,35 +80,19 @@ PYTHONPATH=. python3 ml/backtest.py
 ```
 
 ### 5. Production Synchronization
-Sync real-time 2026 metrics, market prices, and environmental variables.
+Execute the modular ingestion pipeline to sync real-time 2026 data.
 ```bash
-PYTHONPATH=. python3 scripts/ingest_daily.py
+python3 ingest_orchestrator.py
 ```
 
 ### 6. Agentic Analysis
-Query the grounded AI analyst for market inefficiencies and sabermetric insights.
+Query the grounded AI analyst for market inefficiencies.
 ```bash
 python3 agent.py
 ```
 
-## 📊 Database Schema Highlights
-
-- **`starting_pitchers`**: Multi-season repository of individual ERA, SIERA, and K-BB% metrics.
-- **`hitting_lineups`**: Tracks team-level power (ISO) and discipline (K%) with LHP/RHP platoon splits.
-- **`bullpens`**: Stores aggregate relief-corps metrics to monitor late-inning performance risk.
-- **`betting_markets`**: Live prediction table containing real-time features mirrored for ML model execution.
-- **`historical_training_data`**: Chronological repository of 8,500+ games (2023-2025) for model training.
-- **`sportsbook_odds`**: Granular, multi-bookmaker tracking of ML, Run Line, and Totals.
-- **`team_mappings`**: Relational "Translator" anchor used for name-to-ID resolution across all APIs.
-- **`park_factors_and_weather`**: Environmental variables (Temp/Wind) for game-total modeling.
-
-## 📊 Analytical Indicators
-- **SIERA (Skill-Interactive ERA):** Advanced ERA estimator used to identify lucky/unlucky pitcher variance.
-- **K-BB%:** Primary indicator of pitcher plate-discipline dominance.
-- **Lineup ISO:** Weighted offensive power based on confirmed pre-game rosters.
-- **Platoon Edge:** Differential performance metrics vs. LHP and RHP.
-
 ## 🛡 Security & Design Principles
-- **Relational Integrity:** Uses composite Primary Keys and `ON CONFLICT` resolution to maintain a clean state.
-- **Environment Agnostic:** Fully optimized for headless server deployment and automated task scheduling (Cron).
+- **Fail-Fast Boundaries:** Mathematical formulas and API calls are wrapped in strict assertions and error handlers to halt execution before data corruption occurs.
+- **Dependency Injection:** The AI agent and database managers accept configuration from the environment, decoupling logic from hardcoded paths.
+- **Context Efficiency:** The repository uses a specialized `GEMINI.md` AST map to provide high-density grounding for AI-assisted development.
 - **Factual Grounding:** All AI responses are derived via structured tool-use, ensuring mathematical rigor over probabilistic generation.

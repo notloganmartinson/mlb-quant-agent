@@ -31,6 +31,9 @@ test-results/
 data/raw/*.csv
 data/raw/*.json
 data/raw/*.xlsx
+scripts/*.py_temp
+*.py_temp
+.ipynb_checkpoints/
 
 # Logs & Reports
 *.log

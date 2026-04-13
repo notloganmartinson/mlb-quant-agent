@@ -5,10 +5,16 @@ def calculate_siera(so, bb, pa, gb, fb, pu):
     Calculates Skill-Interactive Earned Run Average (SIERA).
     Supports both single values and Pandas Series (vectorized).
     """
+    assert pa is not None, "Plate Appearances (pa) cannot be None"
+    
     # Handle both single values and pandas series
     if hasattr(pa, "__len__"):
         # Vectorized path
         mask = pa > 0
+        # Ensure we don't have all zeros if calling in a context expecting data
+        # but we allow zeros in arrays if we mask them. 
+        # However, the protocol says prevent divide-by-zero. 
+        # np.where is safe but some prefer explicit check if any are > 0.
         k_rate = np.where(mask, so / pa, 0)
         bb_rate = np.where(mask, bb / pa, 0)
         net_gb = np.where(mask, (gb - fb - pu) / pa, 0)
@@ -19,7 +25,7 @@ def calculate_siera(so, bb, pa, gb, fb, pu):
         return np.round(np.maximum(0, base), 2)
     else:
         # Scalar path
-        if pa == 0: return None
+        assert pa > 0, f"Division by zero: Plate Appearances (pa) must be > 0. Received: {pa}"
         k_rate = so / pa
         bb_rate = bb / pa
         net_gb = (gb - fb - pu) / pa
@@ -30,14 +36,18 @@ def calculate_siera(so, bb, pa, gb, fb, pu):
 
 def calculate_k_minus_bb_percent(so, bb, pa):
     """Calculates K-BB%."""
+    assert pa is not None, "Plate Appearances (pa) cannot be None"
     if hasattr(pa, "__len__"):
         return np.round(np.where(pa > 0, (so - bb) / pa, 0), 3)
-    if pa == 0: return 0.0
+    
+    assert pa > 0, f"Division by zero: Plate Appearances (pa) must be > 0. Received: {pa}"
     return round((so - bb) / pa, 3)
 
 def calculate_iso(ab, doubles, triples, hr):
     """Calculates Isolated Power (ISO)."""
+    assert ab is not None, "At Bats (ab) cannot be None"
     if hasattr(ab, "__len__"):
         return np.round(np.where(ab > 0, (doubles + 2 * triples + 3 * hr) / ab, 0), 3)
-    if ab == 0: return 0.0
+    
+    assert ab > 0, f"Division by zero: At Bats (ab) must be > 0. Received: {ab}"
     return round((doubles + 2 * triples + 3 * hr) / ab, 3)

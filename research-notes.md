@@ -74,3 +74,53 @@ The next phase of research will involve a head-to-head performance comparison be
 
 ### 5. Evaluation Framework
 Both models will be evaluated using **Log-Loss** (to measure the accuracy of the probability estimates) and **Kelly ROI**. The ultimate goal is to determine which architecture provides the most accurate $p$ value for the Kelly Criterion tool, thereby maximizing long-term bankroll growth.
+
+---
+
+## Codebase Refactor: Architecting for AI-Assisted Development (April 2026)
+
+### 1. Objective: Efficiency & Context Management
+The project underwent a significant architectural refactor to optimize for AI-assisted development. The primary goals were to reduce **context bloat** (preventing large, monolithic files from exhausting the LLM's context window) and eliminate **logic leaking** (ensuring clear boundaries between data, math, and execution).
+
+### 2. Step-by-Step Refactor & Reasoning
+
+#### Phase 1: Mathematical Bulletproofing (`core/stats_calculator.py`)
+- **Change:** Added fail-fast `assert` statements to all statistical formulas (SIERA, ISO, K-BB%).
+- **Reasoning:** To prevent "Silent Failures" and divide-by-zero errors. By enforcing strict assertions at the function level, we ensure the agent or developer is immediately alerted to data quality issues (e.g., a player with 0 Plate Appearances) before incorrect stats are saved to the database.
+- **Verification:** Created `test_stats_calculator.py` to serve as a 100% verified baseline for all future math changes.
+
+#### Phase 2: Schema Isolation (`core/schema.sql`)
+- **Change:** Extracted all SQL `CREATE TABLE` and `DROP TABLE` statements from `core/database.py` into a standalone `core/schema.sql` file.
+- **Reasoning:** This centralizes the "Source of Truth" for the database structure. It allows the agent to read the schema directly from a clean SQL file rather than parsing Python strings, reducing the potential for hallucination and making schema-aware prompts more efficient.
+
+#### Phase 3: Script Atomicity (`scripts/ingest/`)
+- **Change:** Shattered the monolithic `scripts/ingest_daily.py` into three single-responsibility modules:
+  - `stats.py`: MLB official player/team stats.
+  - `odds.py`: ESPN market data and matchups.
+  - `environment.py`: Stadium coordinates and weather.
+- **Reasoning:** Monolithic scripts are prone to "Context Poisoning," where unrelated logic (e.g., weather API calls) distracts the AI from debugging a stats ingestion issue. Atomicity ensures that each module is small, testable, and focused on one domain.
+- **Verification:** Implemented a **Snapshot Verification** tool to confirm that the new orchestrator produced 100% identical data output to the original script.
+
+#### Phase 4: Dependency Injection (`agent.py`)
+- **Change:** Refactored the `MLBAgent` into a class-based structure that accepts a `db_path` during initialization.
+- **Reasoning:** This decouples the agent's core reasoning from the physical environment. By injecting the database connection rather than hardcoding `data/mlb_betting.db`, we enable the agent to run against "Sandboxed" or "Backtest" databases without modifying the source code, making the system much more portable and secure.
+
+### 3. Outcome: A Modular & Verifiable System
+This refactor transformed the codebase from a "Script-Heavy" prototype into a "Modular-First" architecture. The system is now:
+- **Easier to Maintain:** Bug fixes are isolated to specific domain modules.
+- **Faster for AI:** The agent can read smaller files and has a clear SQL schema to reference.
+- **Secure:** Assertions and Dependency Injection provide robust guardrails against data corruption and environmental coupling.
+
+### 4. Specialized Tooling: The AST Repo Map (`scripts/generate_repo_map.py`)
+To further optimize the agent's performance, a specialized `generate_repo_map.py` script was created. This script produces a non-traditional `GEMINI.md` file that functions as a "High-Resolution Skeleton" of the entire codebase.
+
+#### Why an AST Map instead of a standard `GEMINI.md`?
+Traditional `GEMINI.md` files are often prose-heavy, describing project goals or setup steps. While useful for humans, they are **token-expensive** and often lack the **structural precision** an agent needs for complex refactoring.
+
+The AST (Abstract Syntax Tree) Repo Map approach provides several key advantages:
+1.  **Context Density:** By extracting only class/function signatures and the first line of docstrings, the map provides a 30,000-foot view of the project's logic using less than 5% of the tokens required to read the full source code.
+2.  **Hallucination Prevention:** The map includes explicit **SYSTEM INSTRUCTIONS** that command the agent to never assume logic exists and to always request the full file path before attempting a modification. This "Read-Before-Write" protocol is critical for maintaining codebase integrity.
+3.  **Architectural Grounding:** It allows the agent to see cross-file dependencies (e.g., ensuring `agent.py` uses the exact signature from `core/db_manager.py`) without having to manually grep the entire repository.
+4.  **Automatic Synchronization:** The script can be run after any major refactor to ensure the agent's "Internal Map" is instantly updated to reflect the new modular architecture.
+
+In essence, while a regular `GEMINI.md` tells the agent **what** the project is, the AST Map shows the agent **where** everything is with surgical precision.

@@ -1,193 +1,37 @@
 import sqlite3
+import os
 
 def build_database():
     """
     Initializes/Updates the mlb_betting.db with season-aware tables.
+    Reads schema from schema.sql to ensure atomicity and separation of concerns.
     """
     db_name = "data/mlb_betting.db"
+    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+    
+    # Ensure data directory exists
+    os.makedirs(os.path.dirname(db_name), exist_ok=True)
+    
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    # Drop existing tables to ensure schema migrations are applied correctly
-    cursor.execute("DROP TABLE IF EXISTS starting_pitchers")
-    cursor.execute("DROP TABLE IF EXISTS bullpens")
-    cursor.execute("DROP TABLE IF EXISTS hitting_lineups")
-    cursor.execute("DROP TABLE IF EXISTS betting_markets")
-    cursor.execute("DROP TABLE IF EXISTS historical_training_data")
-    cursor.execute("DROP TABLE IF EXISTS park_factors_and_weather")
-    cursor.execute("DROP TABLE IF EXISTS sportsbook_odds")
-    cursor.execute("DROP TABLE IF EXISTS team_mappings")
-
-    # Table 1: starting_pitchers (Season-Aware)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS starting_pitchers (
-            player_id INTEGER,
-            season INTEGER,
-            name TEXT NOT NULL,
-            date_updated TEXT,
-            stuff_plus REAL,
-            location_plus REAL,
-            pitching_plus REAL,
-            xfip REAL,
-            siera REAL,
-            era REAL,
-            k_minus_bb_percent REAL,
-            iso REAL,
-            k_pct REAL,
-            PRIMARY KEY (player_id, season)
-        )
-    """)
-
-    # Table 2: bullpens (Season-Aware)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS bullpens (
-            team_id INTEGER,
-            season INTEGER,
-            team_name TEXT NOT NULL,
-            date_updated TEXT,
-            bullpen_xfip REAL,
-            bullpen_siera REAL,
-            top_relievers_rest_days INTEGER,
-            total_pitches_last_3_days INTEGER,
-            PRIMARY KEY (team_id, season)
-        )
-    """)
-
-    # Table 3: hitting_lineups (Season-Aware)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS hitting_lineups (
-            team_id INTEGER,
-            season INTEGER,
-            team_name TEXT NOT NULL,
-            date_updated TEXT,
-            iso_vs_rhp REAL,
-            iso_vs_lhp REAL,
-            woba REAL,
-            iso REAL,
-            k_percent REAL,
-            PRIMARY KEY (team_id, season)
-        )
-    """)
-
-    # Table 4: park_factors_and_weather
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS park_factors_and_weather (
-            game_id INTEGER PRIMARY KEY,
-            home_team TEXT NOT NULL,
-            stadium_name TEXT,
-            park_factor_runs REAL,
-            park_factor_hr REAL,
-            temperature REAL,
-            wind_speed_mph REAL,
-            wind_direction TEXT
-        )
-    """)
-
-    # Table 5: betting_markets (Live Predictions - Mirrored with Training Data)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS betting_markets (
-            game_id INTEGER PRIMARY KEY,
-            home_team_id INTEGER,
-            away_team_id INTEGER,
-            home_team TEXT NOT NULL,
-            away_team TEXT NOT NULL,
-            home_pitcher TEXT,
-            away_pitcher TEXT,
-            -- Pitching Features
-            home_sp_siera REAL,
-            away_sp_siera REAL,
-            home_sp_k_minus_bb REAL,
-            away_sp_k_minus_bb REAL,
-            home_bullpen_siera REAL,
-            away_bullpen_siera REAL,
-            -- Hitting Features
-            home_lineup_iso_vs_pitcher_hand REAL,
-            away_lineup_iso_vs_pitcher_hand REAL,
-            home_lineup_woba_vs_pitcher_hand REAL,
-            away_lineup_woba_vs_pitcher_hand REAL,
-            -- Environment & Park
-            park_factor_runs REAL,
-            temperature REAL,
-            wind_speed REAL,
-            wind_direction TEXT,
-            -- Market Data
-            full_game_home_moneyline INTEGER,
-            full_game_away_moneyline INTEGER,
-            full_game_total REAL,
-            implied_prob_home REAL
-        )
-    """)
-
-    # Table 8: historical_training_data (1:1 Mirror of betting_markets + Target)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS historical_training_data (
-            game_id INTEGER PRIMARY KEY,
-            game_date TEXT,
-            home_team_id INTEGER,
-            away_team_id INTEGER,
-            -- THE TARGET
-            home_team_won INTEGER, 
-            -- Pitching Features
-            home_sp_siera REAL,
-            away_sp_siera REAL,
-            home_sp_k_minus_bb REAL,
-            away_sp_k_minus_bb REAL,
-            home_bullpen_siera REAL,
-            away_bullpen_siera REAL,
-            -- Hitting Features
-            home_lineup_iso_vs_pitcher_hand REAL,
-            away_lineup_iso_vs_pitcher_hand REAL,
-            home_lineup_woba_vs_pitcher_hand REAL,
-            away_lineup_woba_vs_pitcher_hand REAL,
-            -- Environment & Park
-            park_factor_runs REAL,
-            temperature REAL,
-            wind_speed REAL,
-            wind_direction TEXT,
-            -- Market/Baseline
-            closing_home_moneyline INTEGER,
-            closing_away_moneyline INTEGER,
-            closing_total REAL
-        )
-    """)
-
-    # Table 6: sportsbook_odds (Detailed multi-book data)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sportsbook_odds (
-            game_id INTEGER,
-            book_name TEXT NOT NULL,
-            home_team_id INTEGER,
-            away_team_id INTEGER,
-            home_ml INTEGER,
-            away_ml INTEGER,
-            home_rl REAL,
-            away_rl REAL,
-            rl_price_home INTEGER,
-            rl_price_away INTEGER,
-            total REAL,
-            total_over_price INTEGER,
-            total_under_price INTEGER,
-            last_updated TEXT,
-            PRIMARY KEY (game_id, book_name)
-        )
-    """)
-
-    # Table 7: team_mappings (The "Translator" Table)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS team_mappings (
-            mlb_id INTEGER PRIMARY KEY,
-            team_name_short TEXT,
-            team_full_name TEXT,
-            odds_api_name TEXT,
-            espn_name TEXT,
-            fangraphs_abbr TEXT
-        )
-    """)
-
-    conn.commit()
-    seed_team_mappings(conn)
-    conn.close()
-    print(f"Database schema refactored and perfectly mirrored.")
+    try:
+        with open(schema_path, "r") as f:
+            schema_sql = f.read()
+        
+        # Execute the script containing all DROP and CREATE statements
+        cursor.executescript(schema_sql)
+        conn.commit()
+        
+        # Seed canonical data
+        seed_team_mappings(conn)
+        
+        print(f"Database schema refactored and built from {schema_path}.")
+    except Exception as e:
+        print(f"Error building database: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 def seed_team_mappings(conn):
     """Populates the team_mappings table with canonical MLB data."""
