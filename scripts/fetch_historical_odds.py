@@ -45,9 +45,11 @@ def fetch_sbr_odds_playwright(date_str):
                     if not view: continue
                     line = view.get('currentLine', {})
                     if not line: continue
-                    home_ml = line.get('homeMoneyLine')
+                    
+                    # SBR uses different keys depending on the endpoint/page version
+                    home_ml = line.get('homeMoneyLine') or line.get('homeOdds')
                     if home_ml is not None:
-                        away_ml = line.get('awayMoneyLine')
+                        away_ml = line.get('awayMoneyLine') or line.get('awayOdds')
                         total = line.get('total')
                         break
                 
@@ -73,7 +75,7 @@ def update_historical_odds(date_limit=None):
     
     print(f"Syncing Odds for {len(dates)} dates...")
     
-    for date in dates[:5]:
+    for date in dates:
         games = fetch_sbr_odds_playwright(date)
         updated = 0
         for g in games:
@@ -87,4 +89,4 @@ def update_historical_odds(date_limit=None):
         time.sleep(1)
 
 if __name__ == "__main__":
-    update_historical_odds('2025-06')
+    update_historical_odds(None)

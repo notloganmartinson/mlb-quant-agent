@@ -1,0 +1,8 @@
+
+2025 Backtest Summary (A/B Test: Stable Baseline + Dynamic EV Thresholding):
+  -> Total Games Simulated: 2672
+  -> Total Bets Placed: 607
+  -> Total Bets Won: 248
+  -> Win Rate: 40.86%
+  -> Total Profit (Units): -0.40
+  -> Simulated ROI: -2.24%

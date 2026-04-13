@@ -40,22 +40,24 @@ def load_and_preprocess_data(db_path="data/mlb_betting.db"):
     # df['wind_direction'] would need One-Hot encoding here if included.
 
     # 4. Time-Series Split
-    # Since we don't have a 'season' column in this specific table yet, 
-    # we parse the game_date.
+    # Using 2023-2024 for training, and 2022 as our 'Pristine Holdout'
     df['game_date'] = pd.to_datetime(df['game_date'])
     
-    train_mask = df['game_date'].dt.year < 2025
-    test_mask = df['game_date'].dt.year == 2025
+    train_mask = (df['game_date'].dt.year == 2023) | (df['game_date'].dt.year == 2024)
+    test_mask = df['game_date'].dt.year == 2022
 
     X_train, y_train = X[train_mask], y[train_mask]
     X_test, y_test = X[test_mask], y[test_mask]
+    
+    # Contextual data for backtesting (not used as features)
+    context_test = df[test_mask][['game_id', 'closing_home_moneyline', 'closing_away_moneyline']].copy()
 
-    print(f"Data Loaded and Preprocessed:")
+    print(f"Data Loaded and Preprocessed (2022 Holdout Validation):")
     print(f"  -> Training samples (2023-2024): {len(X_train)}")
-    print(f"  -> Testing samples (2025): {len(X_test)}")
+    print(f"  -> Testing samples (2022): {len(X_test)}")
     print(f"  -> Feature count: {len(X.columns)}")
 
-    return X_train, X_test, y_train, y_test
+    return X_train, X_test, y_train, y_test, context_test
 
 if __name__ == "__main__":
     load_and_preprocess_data()

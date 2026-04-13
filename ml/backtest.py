@@ -1,5 +1,5 @@
 import pandas as pd
-import xgboost as xgb
+import joblib
 import matplotlib.pyplot as plt
 import sqlite3
 import os
@@ -18,66 +18,91 @@ def run_2025_backtest():
     print("Starting 2025 Historical Backtest...")
     
     # 1. Load Data & Model
-    X_train, X_test, y_train, y_test = load_and_preprocess_data()
-    model = xgb.XGBClassifier()
-    model.load_model("models/xgboost_optimized.json")
+    X_train, X_test, y_train, y_test, context_test = load_and_preprocess_data()
+    model_path = "models/xgboost_calibrated.pkl"
+    if not os.path.exists(model_path):
+        print(f"Error: Calibrated model not found at {model_path}. Run ml/optimize.py first.")
+        return
+    model = joblib.load(model_path)
 
     # 2. Get Predicted Probabilities (p)
     probs = model.predict_proba(X_test)[:, 1]
     
-    # 3. Load Market Data (Closing Lines)
-    # Since DB might be NULL, we simulate a 'Vegas Price' for research if missing
-    # In a real run, this would pull directly from the DB.
-    conn = sqlite3.connect("data/mlb_betting.db")
-    df_market = pd.read_sql_query("SELECT game_id, closing_home_moneyline FROM historical_training_data WHERE game_date >= '2025-01-01'", conn)
-    conn.close()
-
+    # 3. Create results dataframe
     results_df = pd.DataFrame({
-        'our_p': probs,
-        'actual_win': y_test.values,
-        'vegas_ml': df_market['closing_home_moneyline']
+        'game_id': context_test['game_id'],
+        'home_p': probs,
+        'actual_win': y_test.values, # 1 if home won, 0 if away won
+        'home_ml': context_test['closing_home_moneyline']
     })
 
-    # Fill missing market data with a standard -110 (1.91) for the simulation proof
-    results_df['vegas_ml'] = results_df['vegas_ml'].fillna(-110)
+    # Drop games with missing market data
+    initial_count = len(results_df)
+    results_df = results_df.dropna(subset=['home_ml'])
+    results_df = results_df[results_df['home_ml'] != 0]
+    dropped = initial_count - len(results_df)
+    if dropped > 0:
+        print(f"  [!] Flag: Dropped {dropped} games due to missing market data.")
 
     # 4. Convert American to Decimal Odds
     def am_to_dec(ml):
         if ml > 0: return (ml / 100) + 1
         else: return (100 / abs(ml)) + 1
     
-    results_df['decimal_odds'] = results_df['vegas_ml'].apply(am_to_dec)
+    results_df['home_dec'] = results_df['home_ml'].apply(am_to_dec)
 
-    # 5. Kelly Criterion Logic
-    # Stake = (bp - q) / b  where b is net odds, p is prob, q is (1-p)
-    # Fractional Kelly (0.25) is safer for sports
+    # 5. Kelly Criterion Logic (Home Only)
     fractional_kelly = 0.25
     
-    results_df['kelly_stake'] = ((results_df['decimal_odds'] - 1) * results_df['our_p'] - (1 - results_df['our_p'])) / (results_df['decimal_odds'] - 1)
+    results_df['home_kelly'] = ((results_df['home_dec'] - 1) * results_df['home_p'] - (1 - results_df['home_p'])) / (results_df['home_dec'] - 1)
+    results_df['home_edge'] = (results_df['home_p'] * results_df['home_dec']) - 1
     
-    # Only bet if edge is positive
-    results_df['stake_pct'] = results_df['kelly_stake'].apply(lambda x: max(0, x) * fractional_kelly)
+    # Decide which side to bet (Home Only with Dynamic EV Thresholding)
+    def determine_bet(row):
+        vegas_implied = 1 / row['home_dec']
+        if vegas_implied >= 0.40:
+            ev_threshold = 0.05 # 5% for Slight Underdogs and Favorites
+        else:
+            ev_threshold = 0.08 # 8% for Heavy Underdogs (protecting from noise)
+            
+        if row['home_edge'] > ev_threshold:
+            return 'HOME', max(0, row['home_kelly']) * fractional_kelly
+        return 'NONE', 0.0
+
+    bets = results_df.apply(determine_bet, axis=1, result_type='expand')
+    results_df['side_bet'], results_df['stake_pct'] = bets[0], bets[1]
     
     # 6. Calculate P&L
-    # Profit = stake * (decimal_odds - 1) if win, else -stake
     results_df['profit'] = np.where(
-        results_df['actual_win'] == 1,
-        results_df['stake_pct'] * (results_df['decimal_odds'] - 1),
-        -results_df['stake_pct']
+        results_df['side_bet'] == 'HOME',
+        np.where(results_df['actual_win'] == 1, results_df['stake_pct'] * (results_df['home_dec'] - 1), -results_df['stake_pct']),
+        0.0
     )
-    
     results_df['cumulative_pnl'] = results_df['profit'].cumsum()
 
     # 7. Metrics
     total_profit = results_df['profit'].sum()
     roi = (total_profit / results_df['stake_pct'].sum()) if results_df['stake_pct'].sum() > 0 else 0
+    total_bets = len(results_df[results_df['side_bet'] != 'NONE'])
+    bets_won = len(results_df[(results_df['side_bet'] != 'NONE') & (results_df['profit'] > 0)])
+    win_rate = (bets_won / total_bets) if total_bets > 0 else 0
     
-    print("\n2025 Backtest Summary:")
-    print(f"  -> Total Games Simulated: {len(results_df)}")
-    print(f"  -> Total Profit (Units): {total_profit:.2f}")
-    print(f"  -> Simulated ROI: {roi:.2%}")
+    summary = f"""
+2025 Backtest Summary (A/B Test: Stable Baseline + Dynamic EV Thresholding):
+  -> Total Games Simulated: {len(results_df)}
+  -> Total Bets Placed: {total_bets}
+  -> Total Bets Won: {bets_won}
+  -> Win Rate: {win_rate:.2%}
+  -> Total Profit (Units): {total_profit:.2f}
+  -> Simulated ROI: {roi:.2%}
+"""
+    print(summary)
 
-    # 8. Plot P&L Graph
+    # 8. Plot P&L Graph & Export Summary
+    os.makedirs("reports", exist_ok=True)
+    with open("reports/backtest_2025_summary.txt", "w") as f:
+        f.write(summary)
+    
     plt.figure(figsize=(10, 6))
     plt.plot(results_df['cumulative_pnl'], label='Cumulative P&L (Kelly 0.25)')
     plt.title('2025 MLB Model Backtest (Proprietary Features)')

@@ -32,6 +32,9 @@ def test_calculate_siera_vectorized():
 def test_calculate_siera_zero_pa_raises():
 def test_calculate_siera_none_pa_raises():
 
+# debug_sbr.py
+def debug_sbr_fetch(date_str):
+
 # tools/lineup_analyzer.py
 class LineupAnalyzer:
     def __init__(self):

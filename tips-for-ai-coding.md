@@ -2,6 +2,8 @@
 
 These tips are derived from the successful refactor and development of the MLB Quant Betting Agent. They focus on maximizing AI precision while minimizing context bloat and logic errors.
 
+## 1. try and take on parts of project one at a time to avoid confusing model. do sanity check often.
+
 ## 1. Context & Memory Management
 *   **Shatter the Monoliths:** As soon as a script handles more than two distinct domains (e.g., Stats + Weather + Odds), break it into atomic modules. Large files cause "Context Saturation," leading to formatting errors and "Internal Monologue Leakage" (where the AI outputs its raw thoughts).
 *   **Use an AST Repo Map:** Don't just give the AI a README. Use a script to generate a `GEMINI.md` containing class and function skeletons (AST Map). This provides 100% structural awareness with 5% of the token cost.

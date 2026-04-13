@@ -1,5 +1,5 @@
 import pandas as pd
-import xgboost as xgb
+import joblib
 import sqlite3
 import os
 import sys
@@ -16,13 +16,12 @@ def predict_todays_games():
     print(f"--- LIVE ML PREDICTION ENGINE (April 12, 2026) ---")
     
     # 1. Load Model
-    model_path = "models/xgboost_optimized.json"
+    model_path = "models/xgboost_calibrated.pkl"
     if not os.path.exists(model_path):
-        print("Error: Optimized model not found. Run ml/optimize.py first.")
+        print("Error: Calibrated model not found. Run ml/optimize.py first.")
         return
     
-    model = xgb.XGBClassifier()
-    model.load_model(model_path)
+    model = joblib.load(model_path)
 
     # 2. Fetch Live Market Data
     manager = MLBDbManager()

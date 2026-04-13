@@ -123,4 +123,170 @@ The AST (Abstract Syntax Tree) Repo Map approach provides several key advantages
 3.  **Architectural Grounding:** It allows the agent to see cross-file dependencies (e.g., ensuring `agent.py` uses the exact signature from `core/db_manager.py`) without having to manually grep the entire repository.
 4.  **Automatic Synchronization:** The script can be run after any major refactor to ensure the agent's "Internal Map" is instantly updated to reflect the new modular architecture.
 
-In essence, while a regular `GEMINI.md` tells the agent **what** the project is, the AST Map shows the agent **where** everything is with surgical precision.
+## Phase V: Quantitative Backtesting & Model Evolution (2025 Season)
+
+Following the validation of the tool-grounded architecture, the research shifted toward the longitudinal evaluation of the XGBoost predictive engine. The 2025 MLB season was utilized as a primary holdout set to simulate real-market performance across three distinct iterations of model logic.
+
+### Iteration 1: The Baseline (Static Expanding Features)
+**Configuration:**
+- **Training Set:** 2023-2024 (Full Seasons).
+- **Feature Engineering:** `expanding().sum()` cumulative rolling statistics with $N-1$ shift.
+- **Wager Logic:** Single-side Kelly Criterion (0.25 fractional) on Home Moneyline only.
+- **Market Data:** SBR Closing Lines (dropped $NULL$ values).
+
+**Results:**
+- **Total Games Simulated:** 2,601
+- **Total Profit (Units):** 0.48
+- **Simulated ROI:** 3.14%
+
+**Analysis:**
+The baseline iteration demonstrated structural alpha, suggesting that even a simplified cumulative feature set can identify market inefficiencies. However, the reliance on expanding windows created a "dilution effect," where early-season performance carried equal weight to late-season form, potentially ignoring the high-variance nature of player development and mechanical adjustments.
+
+---
+
+### Iteration 2: Temporal Reactivity (EWMA & Two-Way Exploitation)
+**Motivation:** 
+To enhance the model's sensitivity to "recent form" and expand the exploitable market universe to include visitor value.
+
+**Configuration:**
+- **Feature Engineering:** Exponentially Weighted Moving Averages (EWMA) replaced static expanding sums. 
+    - Pitching Span: 25 games (~5-start rotation cycle).
+    - Hitting Span: 30 games (~1 calendar month).
+- **Wager Logic:** Two-way market exploitation. The system evaluated both Home and Away Expected Value (EV) and selected the side with the highest positive edge.
+
+**Results:**
+- **Total Games Simulated:** 2,601
+- **Total Profit (Units):** 0.22
+- **Simulated ROI:** 0.42%
+
+**Analysis:**
+The significant degradation in ROI (from 3.14% to 0.42%) revealed a critical failure in the reactivity-precision tradeoff. The EWMA features, while capturing recent trends, introduced "feature noise" that the XGBoost model overfit during the 2023-2024 training phase. Furthermore, the two-way logic forced the model to chase marginal edges. In a high-juice environment (Vegas Vigorish), betting on low-conviction edges resulted in a "death by a thousand cuts," where the cost of the spread outweighed the model's predictive advantage.
+
+---
+
+### Iteration 3: Structural Regularization & Decision Filtering
+**Motivation:**
+To counteract the volatility and "Vig Erosion" introduced in Iteration 2, a strict decision filter was applied to the uncalibrated model.
+
+**Configuration:**
+- **Decision Filter:** Mandatory minimum Expected Value (EV) of **2.0%** required to authorize a wager.
+- **Goal:** To convert from a "High-Frequency" to a "High-Conviction" engine.
+
+**Results:**
+- **Total Games Simulated:** 2,601
+- **Total Profit (Units):** 0.34
+- **Simulated ROI:** 0.68%
+
+**Analysis:**
+The slight recovery (from 0.42% to 0.68%) confirmed that decision filtering is effective at mitigating losses from marginal, low-conviction wagers. However, the system remained prone to "Kelly Over-Staking" due to the uncalibrated nature of the raw XGBoost probability outputs.
+
+---
+
+### Iteration 4: Probability Calibration (Platt Scaling)
+**Motivation:**
+To align the model's win-probability estimates with real-world outcomes, ensuring the Kelly Criterion stakes capital proportionally to the true mathematical edge.
+
+**Configuration:**
+- **Method:** `CalibratedClassifierCV` (Sigmoid/Platt Scaling) with 5-fold cross-validation.
+- **Threshold:** Maintained the 2.0% EV Decision Filter.
+
+**Results:**
+- **Total Games Simulated:** 2,601
+- **Total Bets Placed:** 1,854
+- **Total Profit (Units):** 0.54
+- **Simulated ROI:** 1.07%
+
+**Analysis:**
+The recovery to a **1.07% ROI** represents the most significant breakthrough since the baseline. By calibrating the probabilities, the model reduced "bankroll churn" on overconfident estimates. The 1,854 bets placed (out of 2,601 possible) indicate that the 2% EV filter is actively removing the noisest ~30% of the market. While still below the 3.14% baseline, Iteration 4 provides a statistically stable foundation for professional two-way market exploitation.
+
+---
+
+### Iteration 5: The Simplicity Alpha (A/B Test: Breakthrough Stack)
+**Motivation:**
+A final A/B test to determine if the modern risk-management constraints (Calibration + Filtering) perform better on the original, stable feature set.
+
+**The Breakthrough Stack:**
+1.  **Feature Set:** Cumulative Expanding Sums (Iteration 1).
+2.  **Probability Engine:** Platt Scaling (Iteration 4).
+3.  **Market Focus:** Home-Side Only.
+4.  **Risk Filter:** Strict 5.0% EV Threshold.
+
+**Results:**
+- **Total Games Simulated:** 2,601
+- **Total Bets Placed:** 512
+- **Total Bets Won:** 239
+- **Win Rate:** 46.68%
+- **Total Profit (Units):** 0.61
+- **Simulated ROI:** 4.07%
+
+**Analysis:**
+The 4.07% ROI achieved here is the highest recorded in the 2025 backtest suite. 
+
+**The Quant "Holy Grail":**
+The win rate of **46.68%** is perhaps the most telling metric. The system is losing more bets than it wins, yet it is generating substantial profit. This is the "Holy Grail" of sports quant modeling; it indicates the model is not just predicting winners, but specifically **identifying heavy underdogs (e.g., +140 or higher) that have a much better chance of winning than the market price suggests.** The profit is derived from consistently exploiting these mispriced "Longshots" rather than chasing high-probability favorites.
+
+---
+
+### Iteration 6: Dynamic EV Thresholding (Volatility Guardrails)
+**Motivation:**
+To improve the win rate and protect the bankroll from high-variance "Longshots" (+150 or higher) that may possess a high theoretical edge but a low absolute probability of success.
+
+**Configuration:**
+- **Feature Set:** Stable Baseline (Iteration 5).
+- **Decision Logic:** Sliding EV Threshold based on Vegas Implied Probability.
+    - Implied Prob >= 40% (Odds <= +150): **5.0% EV Threshold**.
+    - Implied Prob < 40% (Odds > +150): **8.0% EV Threshold**.
+- **Market Focus:** Home-Side Only.
+
+**Results:**
+- **Total Games Simulated:** 2,601
+- **Total Bets Placed:** 512
+- **Total Bets Won:** 239
+- **Win Rate:** 46.68%
+- **Total Profit (Units):** 0.61
+- **Simulated ROI:** 4.07%
+
+Analysis:
+The results matched Iteration 5 exactly, indicating that the current model's authorized wagers were already concentrated in the "Slight Underdog/Favorite" zone, or that the "Heavy Underdog" edges did not exceed the new 8.0% barrier. While the ROI did not increase in this specific simulation, the implementation of **Dynamic EV Thresholding** is a critical architectural upgrade for live deployment. It provides a "Volatility Safety Net," ensuring the system only attacks heavy underdogs when the conviction is exceptionally high, thereby protecting the win rate from the noise of low-probability longshots.
+
+---
+
+### Iteration 7: The Pristine Holdout (2022 Validation)
+**Motivation:**
+To verify if the 4.07% ROI from Iteration 5 was a legitimate market discovery or a result of "Strategy Snooping" (Human Overfitting). The model was tested on the 2022 season—a dataset it had never seen and that was not used during the A/B testing phase.
+
+**Configuration:**
+- **Training Set:** 2023-2024.
+- **Test Set:** 2022 (Pristine Holdout).
+- **The Stack:** Baseline Features + Platt Scaling + Dynamic EV Thresholding.
+
+**Results:**
+- **Total Games Simulated:** 2,672
+- **Total Bets Placed:** 607
+- **Total Bets Won:** 248
+- **Win Rate:** 40.86%
+- **Total Profit (Units):** -0.40
+- **Simulated ROI:** -2.24%
+
+**Analysis: The "Fluke" Confirmed**
+The complete reversal of ROI (from +4.07% to -2.24%) provides a critical research lesson: **The "Breakthrough Stack" was overfit to the specific variance of the 2025 season.** 
+
+By iterating on the strategy *after* observing the 2025 results, the research accidentally engaged in "Backtest Overfitting." The model didn't find a universal edge; it found a strategy that happened to work well in 2025. The drop in win rate (nearly 6%) indicates that the "Underdog Identification" logic was not robust enough to survive the different market conditions of 2022.
+
+---
+
+## Future Research Directions: Beyond the Fluke
+
+The failure of Iteration 7 necessitates a shift from **Strategy Optimization** to **Signal Reconstruction**. To achieve a robust, multi-season ROI, the following vectors must be pursued:
+
+1.  **Technical Debt (The Median Leak):** 
+    The preprocessing logic currently calculates medians across the entire dataset before splitting. This minor "future leak" must be resolved to ensure the model is 100% temporally honest.
+
+2.  **Higher-Density Features (Situational Math):**
+    The "Expanding Sum" features are too blunt. The model needs to transition from "Season-Level Talent" to "Game-Level Tactics":
+    - **Platoon Splits:** Calculating ISO/wOBA specifically against the hand of the starting pitcher.
+    - **Bullpen Fatigue:** Integrating rolling 3-day pitch counts to identify vulnerable underdogs in late innings.
+
+3.  **K-Fold Walk-Forward Validation:**
+    Future iterations must be validated using a "Walk-Forward" approach (e.g., Train '22 -> Test '23; Train '22-'23 -> Test '24) to ensure that alpha is persistent across varying seasonal environments.
+

@@ -15,7 +15,7 @@ def train_baseline_xgboost():
     print("Establishing Baseline XGBoost Model...")
     
     # 1. Load Data
-    X_train, X_test, y_train, y_test = load_and_preprocess_data()
+    X_train, X_test, y_train, y_test, _ = load_and_preprocess_data()
 
     # 2. Initialize Model
     # We use conservative default parameters for the baseline
