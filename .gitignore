@@ -23,11 +23,13 @@ models/*.json
 models/*.onnx
 
 # Playwright & Scraping
-.playwright_session/
+.playwright_session*/
 .pytest_cache/
 test-results/
 
 # Data & Backups (Raw source files)
+data/*.csv
+data/*.json
 data/raw/*.csv
 data/raw/*.json
 data/raw/*.xlsx
@@ -39,6 +41,7 @@ scripts/*.py_temp
 *.log
 reports/*.png
 reports/*.html
+reports/*.txt
 
 # OS specific
 .DS_Store
