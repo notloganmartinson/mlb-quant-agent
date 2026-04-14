@@ -31,6 +31,9 @@ def test_calculate_siera_scalar():
 def test_calculate_siera_vectorized():
 def test_calculate_siera_zero_pa_raises():
 def test_calculate_siera_none_pa_raises():
+def test_calculate_vaa_scalar():
+def test_calculate_vaa_none_raises():
+def test_calculate_break_magnitude():
 
 # debug_sbr.py
 def debug_sbr_fetch(date_str):
@@ -57,6 +60,9 @@ def load_and_preprocess_data(db_path): # Loads data from historical_training_dat
 # ml/train_xgboost.py
 def train_baseline_xgboost(): # Trains an initial XGBoost model and establishes a baseline Log-Loss.
 
+# ml/train_stuff_plus.py
+def train_stuff_plus(): # Trains a pitch-level model to calculate Stuff+ (normalized whiff probability).
+
 # ml/optimize.py
 def optimize_xgboost(): # Performs Grid Search to find the best hyperparameters for the MLB model.
 
@@ -67,9 +73,12 @@ def run_2025_backtest(): # Simulates the 2025 season using the optimized XGBoost
 def calculate_siera(so, bb, pa, gb, fb, pu): # Calculates Skill-Interactive Earned Run Average (SIERA).
 def calculate_k_minus_bb_percent(so, bb, pa): # Calculates K-BB%.
 def calculate_iso(ab, doubles, triples, hr): # Calculates Isolated Power (ISO).
+def calculate_vaa(vy0, ay, vz0, az): # Calculates Vertical Approach Angle (VAA) at the plate (y=1.417 ft).
+def calculate_break_magnitude(pfx_x, pfx_z): # Calculates the total movement magnitude (in inches).
+def calculate_rolling_stuff_plus(pitch_values, window, prior_val, prior_weight): # Calculates the point-in-time rolling Stuff+ for a pitcher.
 
 # core/database.py
-def build_database(): # Initializes/Updates the mlb_betting.db with season-aware tables.
+def build_database(): # Initializes/Updates the mlb_betting.db using the patch-based migration system.
 def seed_team_mappings(conn): # Populates the team_mappings table with canonical MLB data.
 
 # core/db_manager.py
@@ -82,8 +91,15 @@ class MLBDbManager:
     def upsert_betting_market(self, data): # Live prediction table with full ML feature set.
     def upsert_historical_training_data(self, data): # Historical training table - 1:1 mirror of live features + Target + Closing Lines.
     def upsert_sportsbook_odds(self, data): # Inserts or updates detailed odds for a specific sportsbook.
+    def upsert_raw_pitch(self, data): # Inserts a raw Statcast pitch for training.
+    def update_pitcher_stuff_plus(self, player_id, season, stuff_plus): # Surgically update Stuff+ for a pitcher/season.
+    def update_pitch_stuff_plus(self, pitch_id, stuff_plus): # Update individual pitch-level Stuff+.
+    def get_pitcher_prior_pitches(self, pitcher_id, game_date): # Fetches all Stuff+ values for a pitcher before a specific date.
     def resolve_team_id(self, name) -> int: # Translates a team name into the canonical mlb_id.
     def query_agent_data(self, sql_query):
+
+# scripts/migrate.py
+def run_migrations(): # Architects a safe, patch-based database migration system.
 
 # scripts/ingest_historical.py
 def ingest_2025_baseline(): # Automated ingestion of full 2025 season stats to provide a stable baseline.
@@ -114,4 +130,9 @@ def fetch_odds_espn(): # Fetches live MLB odds and probable pitchers from ESPN.
 
 # scripts/ingest/stats.py
 def ingest_mlb_official_stats(season): # Fetches raw stats and computes metrics for 2026.
+
+# scripts/ingest/statcast.py
+def log_progress(date_str):
+def get_last_progress():
+def ingest_production_statcast(): # Production-scale ingestion: 7-day chunks, parallelized, memory-safe.
 ```

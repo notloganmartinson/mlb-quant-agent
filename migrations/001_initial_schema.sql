@@ -1,16 +1,6 @@
 -- MLB Betting Database Schema
 -- Last Updated: 2026-04-12
-
--- Drop existing tables to ensure schema migrations are applied correctly
-DROP TABLE IF EXISTS starting_pitchers;
-DROP TABLE IF EXISTS bullpens;
-DROP TABLE IF EXISTS hitting_lineups;
-DROP TABLE IF EXISTS betting_markets;
-DROP TABLE IF EXISTS historical_training_data;
-DROP TABLE IF EXISTS park_factors_and_weather;
-DROP TABLE IF EXISTS sportsbook_odds;
-DROP TABLE IF EXISTS team_mappings;
-DROP TABLE IF EXISTS raw_pitches;
+-- Migration: 001_initial_schema
 
 -- Table 1: starting_pitchers (Season-Aware)
 CREATE TABLE IF NOT EXISTS starting_pitchers (

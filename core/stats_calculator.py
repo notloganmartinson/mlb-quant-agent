@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def calculate_siera(so, bb, pa, gb, fb, pu):
     """
@@ -51,3 +52,57 @@ def calculate_iso(ab, doubles, triples, hr):
     
     assert ab > 0, f"Division by zero: At Bats (ab) must be > 0. Received: {ab}"
     return round((doubles + 2 * triples + 3 * hr) / ab, 3)
+
+def calculate_vaa(vy0, ay, vz0, az):
+    """
+    Calculates Vertical Approach Angle (VAA) at the plate (y=1.417 ft).
+    Standard Statcast coordinates: y=50 is release, y=0 is plate.
+    """
+    assert all(v is not None for v in [vy0, ay, vz0, az]), "Physics inputs cannot be None"
+    y_target = 17/12.0 # 1.417 ft
+    y_start = 50.0
+    dist = y_target - y_start
+    
+    # vy_f = -sqrt(vy0^2 + 2 * ay * dist)
+    # vy0 is negative in Statcast (towards plate)
+    v_yf_sq = vy0**2 + 2 * ay * dist
+    assert np.all(v_yf_sq > 0), "Invalid physics: velocity squared must be positive"
+    
+    vy_f = -np.sqrt(v_yf_sq)
+    t = (vy_f - vy0) / ay
+    vz_f = vz0 + az * t
+    
+    vaa = -np.degrees(np.arctan(vz_f / vy_f))
+    return np.round(vaa, 2)
+
+def calculate_break_magnitude(pfx_x, pfx_z):
+    """Calculates the total movement magnitude (in inches)."""
+    assert pfx_x is not None and pfx_z is not None, "Movement inputs cannot be None"
+    return np.round(np.sqrt(pfx_x**2 + pfx_z**2), 2)
+
+def calculate_rolling_stuff_plus(pitch_values, window=100, prior_val=100, prior_weight=20):
+    """
+    Calculates the point-in-time rolling Stuff+ for a pitcher.
+    Uses a Bayesian prior (league average = 100) to stabilize small samples (rookies).
+    
+    Args:
+        pitch_values (list/np.array): A chronologically ordered list of Stuff+ values for a pitcher's prior pitches.
+        window (int): The trailing pitch window to average.
+        prior_val (int): The league average baseline (e.g., 100).
+        prior_weight (int): Strength of the prior in pitch equivalents.
+        
+    Returns:
+        float: The calculated Rolling Stuff+ score.
+    """
+    assert isinstance(pitch_values, (list, np.ndarray, pd.Series)), "pitch_values must be a sequence"
+    
+    # Take the trailing window
+    recent_pitches = pitch_values[-window:] if len(pitch_values) > 0 else []
+    
+    # Bayesian Average: (Sum of Samples + PriorValue * PriorWeight) / (Count + PriorWeight)
+    sample_sum = np.sum(recent_pitches)
+    sample_count = len(recent_pitches)
+    
+    rolling_val = (sample_sum + (prior_val * prior_weight)) / (sample_count + prior_weight)
+    
+    return float(np.round(rolling_val, 2))

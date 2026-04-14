@@ -106,35 +106,45 @@ def generate_rolling_stats(season):
     print(f"\n--- Starting Honest Ingestion for {season} ---")
     feature_map = get_rolling_feature_map(season)
     
-    months = [("03-01", "03-31"), ("04-01", "04-30"), ("05-01", "05-31"), ("06-01", "06-30"), ("07-01", "07-31"), ("08-01", "08-31"), ("09-01", "09-30"), ("10-01", "11-15")]
-    all_final_games = []
+    months = [
+        ("03-01", "03-31"), ("04-01", "04-30"), ("05-01", "05-31"), 
+        ("06-01", "06-30"), ("07-01", "07-31"), ("08-01", "08-31"), 
+        ("09-01", "09-30"), ("10-01", "11-15")
+    ]
+    
+    print(f"Populating games for {season} in monthly chunks...")
     for start, end in months:
         try:
             games = statsapi.schedule(start_date=f"{season}-{start}", end_date=f"{season}-{end}")
-            all_final_games.extend([g for g in games if g['status'] == 'Final'])
-        except: continue
+            month_games = [g for g in games if g['status'] == 'Final']
+            
+            for g in month_games:
+                date = g['game_date']
+                h_id, a_id = int(g['home_id']), int(g['away_id'])
+                
+                h_p = feature_map.get((h_id, date, 'p'), {'siera': 4.2, 'k_bb': 0.14})
+                a_p = feature_map.get((a_id, date, 'p'), {'siera': 4.2, 'k_bb': 0.14})
+                h_h = feature_map.get((h_id, date, 'h'), {'iso': 0.15, 'woba': 0.315})
+                a_h = feature_map.get((a_id, date, 'h'), {'iso': 0.15, 'woba': 0.315})
+                
+                manager.upsert_historical_training_data({
+                    "game_id": g['game_id'], "game_date": date, "home_team_id": h_id, "away_team_id": a_id,
+                    "home_team_won": 1 if g['home_score'] > g['away_score'] else 0,
+                    "home_sp_siera": h_p['siera'], "away_sp_siera": a_p['siera'],
+                    "home_sp_k_minus_bb": h_p['k_bb'], "away_sp_k_minus_bb": a_p['k_bb'],
+                    "home_bullpen_siera": h_p['siera'], "away_bullpen_siera": a_p['siera'],
+                    "home_lineup_iso_vs_pitcher_hand": h_h['iso'], "away_lineup_iso_vs_pitcher_hand": a_h['iso'],
+                    "home_lineup_woba_vs_pitcher_hand": h_h['woba'], "away_lineup_woba_vs_pitcher_hand": a_h['woba'],
+                    "park_factor_runs": 1.0, "temperature": 70.0, "wind_speed": 5.0, "wind_direction": "Neutral",
+                    "closing_home_moneyline": None, "closing_away_moneyline": None, "closing_total": None
+                })
+            
+            print(f"  Processed {season}-{start} to {end}. Sleeping 2s...")
+            time.sleep(2)
+        except Exception as e:
+            print(f"  Error in range {start}-{end}: {e}")
+            continue
 
-    print(f"Populating {len(all_final_games)} games...")
-    for g in all_final_games:
-        date = g['game_date']
-        h_id, a_id = int(g['home_id']), int(g['away_id']) # Hard-lock ID type
-        
-        h_p = feature_map.get((h_id, date, 'p'), {'siera': 4.2, 'k_bb': 0.14})
-        a_p = feature_map.get((a_id, date, 'p'), {'siera': 4.2, 'k_bb': 0.14})
-        h_h = feature_map.get((h_id, date, 'h'), {'iso': 0.15, 'woba': 0.315})
-        a_h = feature_map.get((a_id, date, 'h'), {'iso': 0.15, 'woba': 0.315})
-        
-        manager.upsert_historical_training_data({
-            "game_id": g['game_id'], "game_date": date, "home_team_id": h_id, "away_team_id": a_id,
-            "home_team_won": 1 if g['home_score'] > g['away_score'] else 0,
-            "home_sp_siera": h_p['siera'], "away_sp_siera": a_p['siera'],
-            "home_sp_k_minus_bb": h_p['k_bb'], "away_sp_k_minus_bb": a_p['k_bb'],
-            "home_bullpen_siera": h_p['siera'], "away_bullpen_siera": a_p['siera'],
-            "home_lineup_iso_vs_pitcher_hand": h_h['iso'], "away_lineup_iso_vs_pitcher_hand": a_h['iso'],
-            "home_lineup_woba_vs_pitcher_hand": h_h['woba'], "away_lineup_woba_vs_pitcher_hand": a_h['woba'],
-            "park_factor_runs": 1.0, "temperature": 70.0, "wind_speed": 5.0, "wind_direction": "Neutral",
-            "closing_home_moneyline": None, "closing_away_moneyline": None, "closing_total": None
-        })
     print(f"Season {season} Complete.")
 
 if __name__ == "__main__":

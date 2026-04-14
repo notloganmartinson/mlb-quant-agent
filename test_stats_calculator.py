@@ -50,3 +50,18 @@ def test_calculate_siera_zero_pa_raises():
 def test_calculate_siera_none_pa_raises():
     with pytest.raises(AssertionError, match="cannot be None"):
         stats_calculator.calculate_siera(0, 0, None, 0, 0, 0)
+
+def test_calculate_vaa_scalar():
+    # Basic sanity check
+    # vy0=-135, ay=25, vz0=-5, az=-25
+    vaa = stats_calculator.calculate_vaa(-135.0, 25.0, -5.0, -25.0)
+    assert isinstance(vaa, float)
+    assert -15 < vaa < 15
+
+def test_calculate_vaa_none_raises():
+    with pytest.raises(AssertionError, match="cannot be None"):
+        stats_calculator.calculate_vaa(None, 0, 0, 0)
+
+def test_calculate_break_magnitude():
+    # 3, 4 -> 5.0
+    assert stats_calculator.calculate_break_magnitude(3.0, 4.0) == 5.0

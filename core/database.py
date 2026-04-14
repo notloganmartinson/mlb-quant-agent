@@ -1,37 +1,25 @@
 import sqlite3
 import os
 
+from scripts.migrate import run_migrations
+
 def build_database():
     """
-    Initializes/Updates the mlb_betting.db with season-aware tables.
-    Reads schema from schema.sql to ensure atomicity and separation of concerns.
+    Initializes/Updates the mlb_betting.db using the patch-based migration system.
+    Prevents data loss by avoiding direct 'drop and recreate' behavior.
     """
+    # 1. Run the patch-based migration system
+    run_migrations()
+    
+    # 2. Seed canonical data (idempotent)
     db_name = "data/mlb_betting.db"
-    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
-    
-    # Ensure data directory exists
-    os.makedirs(os.path.dirname(db_name), exist_ok=True)
-    
     conn = sqlite3.connect(db_name)
-    cursor = conn.cursor()
-
     try:
-        with open(schema_path, "r") as f:
-            schema_sql = f.read()
-        
-        # Execute the script containing all DROP and CREATE statements
-        cursor.executescript(schema_sql)
-        conn.commit()
-        
-        # Seed canonical data
         seed_team_mappings(conn)
-        
-        print(f"Database schema refactored and built from {schema_path}.")
-    except Exception as e:
-        print(f"Error building database: {e}")
-        conn.rollback()
     finally:
         conn.close()
+    
+    print("Database build/update process completed safely.")
 
 def seed_team_mappings(conn):
     """Populates the team_mappings table with canonical MLB data."""

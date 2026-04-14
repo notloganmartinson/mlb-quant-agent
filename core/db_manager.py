@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime
 
 class MLBDbManager:
     def __init__(self, db_path="data/mlb_betting.db"):
@@ -86,7 +87,8 @@ class MLBDbManager:
                 away_lineup_iso_vs_pitcher_hand, home_lineup_woba_vs_pitcher_hand, 
                 away_lineup_woba_vs_pitcher_hand, park_factor_runs, temperature, 
                 wind_speed, wind_direction, full_game_home_moneyline, 
-                full_game_away_moneyline, full_game_total, implied_prob_home
+                full_game_away_moneyline, full_game_total, implied_prob_home,
+                home_sp_rolling_stuff, away_sp_rolling_stuff
             ) VALUES (
                 :game_id, :home_team_id, :away_team_id, :home_team, :away_team, 
                 :home_pitcher, :away_pitcher, :home_sp_siera, :away_sp_siera, 
@@ -95,7 +97,8 @@ class MLBDbManager:
                 :away_lineup_iso_vs_pitcher_hand, :home_lineup_woba_vs_pitcher_hand, 
                 :away_lineup_woba_vs_pitcher_hand, :park_factor_runs, :temperature, 
                 :wind_speed, :wind_direction, :full_game_home_moneyline, 
-                :full_game_away_moneyline, :full_game_total, :implied_prob_home
+                :full_game_away_moneyline, :full_game_total, :implied_prob_home,
+                :home_sp_rolling_stuff, :away_sp_rolling_stuff
             )
             ON CONFLICT(game_id) DO UPDATE SET
                 full_game_home_moneyline = excluded.full_game_home_moneyline,
@@ -119,7 +122,9 @@ class MLBDbManager:
                 park_factor_runs = COALESCE(excluded.park_factor_runs, betting_markets.park_factor_runs),
                 temperature = COALESCE(excluded.temperature, betting_markets.temperature),
                 wind_speed = COALESCE(excluded.wind_speed, betting_markets.wind_speed),
-                wind_direction = COALESCE(excluded.wind_direction, betting_markets.wind_direction)
+                wind_direction = COALESCE(excluded.wind_direction, betting_markets.wind_direction),
+                home_sp_rolling_stuff = COALESCE(excluded.home_sp_rolling_stuff, betting_markets.home_sp_rolling_stuff),
+                away_sp_rolling_stuff = COALESCE(excluded.away_sp_rolling_stuff, betting_markets.away_sp_rolling_stuff)
         """
         with self._get_connection() as conn:
             conn.execute(sql, data)
@@ -134,7 +139,8 @@ class MLBDbManager:
                 away_lineup_iso_vs_pitcher_hand, home_lineup_woba_vs_pitcher_hand, 
                 away_lineup_woba_vs_pitcher_hand, park_factor_runs, temperature, 
                 wind_speed, wind_direction, closing_home_moneyline, 
-                closing_away_moneyline, closing_total
+                closing_away_moneyline, closing_total,
+                home_sp_rolling_stuff, away_sp_rolling_stuff
             ) VALUES (
                 :game_id, :game_date, :home_team_id, :away_team_id, :home_team_won, 
                 :home_sp_siera, :away_sp_siera, :home_sp_k_minus_bb, :away_sp_k_minus_bb, 
@@ -142,7 +148,8 @@ class MLBDbManager:
                 :away_lineup_iso_vs_pitcher_hand, :home_lineup_woba_vs_pitcher_hand, 
                 :away_lineup_woba_vs_pitcher_hand, :park_factor_runs, :temperature, 
                 :wind_speed, :wind_direction, :closing_home_moneyline, 
-                :closing_away_moneyline, :closing_total
+                :closing_away_moneyline, :closing_total,
+                :home_sp_rolling_stuff, :away_sp_rolling_stuff
             )
             ON CONFLICT(game_id) DO UPDATE SET
                 home_team_won = excluded.home_team_won,
@@ -160,7 +167,9 @@ class MLBDbManager:
                 away_lineup_woba_vs_pitcher_hand = excluded.away_lineup_woba_vs_pitcher_hand,
                 closing_home_moneyline = COALESCE(excluded.closing_home_moneyline, historical_training_data.closing_home_moneyline),
                 closing_away_moneyline = COALESCE(excluded.closing_away_moneyline, historical_training_data.closing_away_moneyline),
-                closing_total = COALESCE(excluded.closing_total, historical_training_data.closing_total)
+                closing_total = COALESCE(excluded.closing_total, historical_training_data.closing_total),
+                home_sp_rolling_stuff = excluded.home_sp_rolling_stuff,
+                away_sp_rolling_stuff = excluded.away_sp_rolling_stuff
         """
         with self._get_connection() as conn:
             conn.execute(sql, data)
@@ -193,6 +202,49 @@ class MLBDbManager:
         """
         with self._get_connection() as conn:
             conn.execute(sql, data)
+
+    def upsert_raw_pitch(self, data: dict):
+        """Inserts a raw Statcast pitch for training."""
+        sql = """
+            INSERT INTO raw_pitches (
+                pitcher_id, game_date, pitch_type, release_speed, pfx_x, pfx_z, 
+                release_spin_rate, release_extension, vx0, vy0, vz0, ax, ay, az, 
+                sz_top, sz_bot, plate_x, plate_z, description, whiff
+            ) VALUES (
+                :pitcher_id, :game_date, :pitch_type, :release_speed, :pfx_x, :pfx_z, 
+                :release_spin_rate, :release_extension, :vx0, :vy0, :vz0, :ax, :ay, :az, 
+                :sz_top, :sz_bot, :plate_x, :plate_z, :description, :whiff
+            )
+        """
+        with self._get_connection() as conn:
+            conn.execute(sql, data)
+
+    def update_pitcher_stuff_plus(self, player_id, season, stuff_plus):
+        """Surgically update Stuff+ for a pitcher/season."""
+        sql = """
+            UPDATE starting_pitchers 
+            SET stuff_plus = ?, date_updated = ?
+            WHERE player_id = ? AND season = ?
+        """
+        with self._get_connection() as conn:
+            conn.execute(sql, (stuff_plus, datetime.now().strftime("%Y-%m-%d"), player_id, season))
+
+    def update_pitch_stuff_plus(self, pitch_id, stuff_plus):
+        """Update individual pitch-level Stuff+."""
+        sql = "UPDATE raw_pitches SET stuff_plus = ? WHERE pitch_id = ?"
+        with self._get_connection() as conn:
+            conn.execute(sql, (stuff_plus, pitch_id))
+
+    def get_pitcher_prior_pitches(self, pitcher_id, game_date):
+        """Fetches all Stuff+ values for a pitcher before a specific date."""
+        sql = """
+            SELECT stuff_plus FROM raw_pitches 
+            WHERE pitcher_id = ? AND game_date < ? AND stuff_plus IS NOT NULL
+            ORDER BY game_date ASC
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute(sql, (pitcher_id, game_date)).fetchall()
+            return [row['stuff_plus'] for row in rows]
 
     def resolve_team_id(self, name: str) -> int:
         """Translates a team name into the canonical mlb_id."""

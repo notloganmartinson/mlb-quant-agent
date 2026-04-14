@@ -1,7 +1,8 @@
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import log_loss
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.metrics import log_loss, mean_absolute_error
+from sklearn.multioutput import MultiOutputRegressor
+from scipy.stats import skellam
 import joblib
 import os
 import sys
@@ -13,27 +14,28 @@ from ml.preprocess import load_and_preprocess_data
 def optimize_xgboost():
     """
     Performs Grid Search to find the best hyperparameters for the MLB model.
+    Includes Tweedie variance power for overdispersion tuning.
     """
-    print("Starting Hyperparameter Optimization...")
+    print("Starting Hyperparameter Optimization for Calibrated Run Estimator...")
     X_train, X_test, y_train, y_test, _ = load_and_preprocess_data()
 
     # 1. Define Search Space
+    # Prefix with estimator__ for MultiOutputRegressor
     param_grid = {
-        'max_depth': [3, 4, 5],
-        'learning_rate': [0.01, 0.05],
-        'n_estimators': [100, 200],
-        'subsample': [0.8, 1.0],
-        'colsample_bytree': [0.8, 1.0],
-        'gamma': [0.1, 0.5, 1.0],
-        'min_child_weight': [3, 5, 7]
+        'estimator__max_depth': [3, 4, 5],
+        'estimator__learning_rate': [0.01, 0.05, 0.1],
+        'estimator__n_estimators': [100, 200],
+        'estimator__tweedie_variance_power': [1.1, 1.5, 1.9],
+        'estimator__subsample': [0.8, 1.0]
     }
 
     # 2. Initialize Grid Search
-    # Note: We use cv=3 for speed in this environment
+    # Tweedie objective is used for regression with overdispersion
+    base_model = xgb.XGBRegressor(objective='reg:tweedie', random_state=42)
     grid_search = GridSearchCV(
-        estimator=xgb.XGBClassifier(objective='binary:logistic', random_state=42, eval_metric='logloss'),
+        estimator=MultiOutputRegressor(base_model),
         param_grid=param_grid,
-        scoring='neg_log_loss',
+        scoring='neg_mean_absolute_error',
         cv=3,
         verbose=1
     )
@@ -44,22 +46,27 @@ def optimize_xgboost():
     best_model = grid_search.best_estimator_
     print(f"\nBest Parameters Found: {grid_search.best_params_}")
 
-    # 4. Probability Calibration (Platt Scaling)
-    print("Calibrating win probabilities (Platt Scaling)...")
-    calibrated_model = CalibratedClassifierCV(estimator=best_model, method='sigmoid', cv=5)
-    calibrated_model.fit(X_train, y_train)
-
-    # 5. Final Evaluation
-    y_prob = calibrated_model.predict_proba(X_test)[:, 1]
-    optimized_loss = log_loss(y_test, y_prob)
+    # 4. Final Evaluation
+    y_test_pred = best_model.predict(X_test)
     
-    print(f"\nOptimized & Calibrated Results (2025 Holdout):")
-    print(f"  -> Best Log-Loss: {optimized_loss:.4f}")
+    # Calculate Raw Win Probability using Skellam
+    prob_win_raw = skellam.sf(0, y_test_pred[:, 0], y_test_pred[:, 1])
+    prob_tie_raw = skellam.pmf(0, y_test_pred[:, 0], y_test_pred[:, 1])
+    test_win_prob_raw = prob_win_raw / (1 - prob_tie_raw)
+    
+    y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
+    
+    raw_loss = log_loss(y_test_won, test_win_prob_raw)
+    mae = mean_absolute_error(y_test, y_test_pred)
+    
+    print(f"\nOptimized Results (Raw, 2022 Holdout):")
+    print(f"  -> Best Win Log-Loss (Raw): {raw_loss:.4f}")
+    print(f"  -> Mean Absolute Error (Runs): {mae:.4f}")
 
-    # 6. Save Optimized & Calibrated Model
+    # 5. Save Optimized Model
     os.makedirs("models", exist_ok=True)
-    joblib.dump(calibrated_model, "models/xgboost_calibrated.pkl")
-    print("Calibrated model saved to models/xgboost_calibrated.pkl")
+    joblib.dump(best_model, "models/xgboost_optimized.joblib")
+    print("Optimized model saved to models/xgboost_optimized.joblib")
 
 if __name__ == "__main__":
     optimize_xgboost()

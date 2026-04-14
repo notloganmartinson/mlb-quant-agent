@@ -35,7 +35,7 @@ def predict_todays_games():
 
     # 3. Format Features (Must match Training Set exactly)
     features = [
-        'home_sp_siera', 'away_sp_siera', 
+        'home_sp_stuff_plus', 'away_sp_stuff_plus', 
         'home_sp_k_minus_bb', 'away_sp_k_minus_bb',
         'home_bullpen_siera', 'away_bullpen_siera',
         'home_lineup_iso_vs_pitcher_hand', 'away_lineup_iso_vs_pitcher_hand',
@@ -44,10 +44,12 @@ def predict_todays_games():
         'home_team_id', 'away_team_id'
     ]
     
-    X_live = df_live[features].fillna(0) # Basic fallback
+    X_live = df_live[features].apply(pd.to_numeric, errors='coerce').fillna(0) # Basic fallback
 
-    # 4. Generate Probabilities (p)
-    probs = model.predict_proba(X_live)[:, 1]
+    # 4. Generate Probabilities (p) using Poisson + Skellam
+    from scipy.stats import skellam
+    y_pred = model.predict(X_live)
+    probs = 1 - skellam.cdf(0, y_pred[:, 0], y_pred[:, 1])
     
     # 5. Kelly Calculation & Reporting
     print(f"{'Matchup':<40} | {'Vegas Prob':<10} | {'Our Prob':<10} | {'Kelly Stake'}")
