@@ -29,8 +29,7 @@ def train_baseline_xgboost():
         n_estimators=100,
         max_depth=4,
         learning_rate=0.1,
-        objective='reg:tweedie',
-        tweedie_variance_power=1.5,
+        objective='count:poisson',
         random_state=42
     )
     model = MultiOutputRegressor(base_model)

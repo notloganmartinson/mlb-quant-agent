@@ -130,13 +130,15 @@ def generate_rolling_stats(season):
                 manager.upsert_historical_training_data({
                     "game_id": g['game_id'], "game_date": date, "home_team_id": h_id, "away_team_id": a_id,
                     "home_team_won": 1 if g['home_score'] > g['away_score'] else 0,
+                    "home_team_runs": g['home_score'], "away_team_runs": g['away_score'],
                     "home_sp_siera": h_p['siera'], "away_sp_siera": a_p['siera'],
                     "home_sp_k_minus_bb": h_p['k_bb'], "away_sp_k_minus_bb": a_p['k_bb'],
                     "home_bullpen_siera": h_p['siera'], "away_bullpen_siera": a_p['siera'],
                     "home_lineup_iso_vs_pitcher_hand": h_h['iso'], "away_lineup_iso_vs_pitcher_hand": a_h['iso'],
                     "home_lineup_woba_vs_pitcher_hand": h_h['woba'], "away_lineup_woba_vs_pitcher_hand": a_h['woba'],
                     "park_factor_runs": 1.0, "temperature": 70.0, "wind_speed": 5.0, "wind_direction": "Neutral",
-                    "closing_home_moneyline": None, "closing_away_moneyline": None, "closing_total": None
+                    "closing_home_moneyline": None, "closing_away_moneyline": None, "closing_total": None,
+                    "home_sp_rolling_stuff": 100.0, "away_sp_rolling_stuff": 100.0
                 })
             
             print(f"  Processed {season}-{start} to {end}. Sleeping 2s...")

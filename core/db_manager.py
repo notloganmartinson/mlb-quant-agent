@@ -134,6 +134,7 @@ class MLBDbManager:
         sql = """
             INSERT INTO historical_training_data (
                 game_id, game_date, home_team_id, away_team_id, home_team_won, 
+                home_team_runs, away_team_runs,
                 home_sp_siera, away_sp_siera, home_sp_k_minus_bb, away_sp_k_minus_bb, 
                 home_bullpen_siera, away_bullpen_siera, home_lineup_iso_vs_pitcher_hand, 
                 away_lineup_iso_vs_pitcher_hand, home_lineup_woba_vs_pitcher_hand, 
@@ -143,6 +144,7 @@ class MLBDbManager:
                 home_sp_rolling_stuff, away_sp_rolling_stuff
             ) VALUES (
                 :game_id, :game_date, :home_team_id, :away_team_id, :home_team_won, 
+                :home_team_runs, :away_team_runs,
                 :home_sp_siera, :away_sp_siera, :home_sp_k_minus_bb, :away_sp_k_minus_bb, 
                 :home_bullpen_siera, :away_bullpen_siera, :home_lineup_iso_vs_pitcher_hand, 
                 :away_lineup_iso_vs_pitcher_hand, :home_lineup_woba_vs_pitcher_hand, 
@@ -153,6 +155,8 @@ class MLBDbManager:
             )
             ON CONFLICT(game_id) DO UPDATE SET
                 home_team_won = excluded.home_team_won,
+                home_team_runs = excluded.home_team_runs,
+                away_team_runs = excluded.away_team_runs,
                 home_team_id = excluded.home_team_id,
                 away_team_id = excluded.away_team_id,
                 home_sp_siera = excluded.home_sp_siera,

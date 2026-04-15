@@ -5,6 +5,7 @@ import sqlite3
 import os
 import sys
 import numpy as np
+from scipy.stats import skellam
 
 # Ensure project root is in path for imports
 sys.path.append(os.getcwd())
@@ -19,20 +20,27 @@ def run_2025_backtest():
     
     # 1. Load Data & Model
     X_train, X_test, y_train, y_test, context_test = load_and_preprocess_data()
-    model_path = "models/xgboost_calibrated.pkl"
-    if not os.path.exists(model_path):
-        print(f"Error: Calibrated model not found at {model_path}. Run ml/optimize.py first.")
+    model_path = "models/xgboost_baseline.joblib"
+    calib_path = "models/calibration_model.joblib"
+    if not os.path.exists(model_path) or not os.path.exists(calib_path):
+        print(f"Error: Models not found at {model_path} or {calib_path}. Run ml/train_xgboost.py first.")
         return
     model = joblib.load(model_path)
+    iso_reg = joblib.load(calib_path)
 
     # 2. Get Predicted Probabilities (p)
-    probs = model.predict_proba(X_test)[:, 1]
+    y_test_pred = model.predict(X_test)
+    test_prob_win_raw = skellam.sf(0, y_test_pred[:, 0], y_test_pred[:, 1])
+    test_prob_tie_raw = skellam.pmf(0, y_test_pred[:, 0], y_test_pred[:, 1])
+    test_win_prob_raw = test_prob_win_raw / (1 - test_prob_tie_raw)
+    probs = iso_reg.transform(test_win_prob_raw)
     
     # 3. Create results dataframe
+    y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
     results_df = pd.DataFrame({
         'game_id': context_test['game_id'],
         'home_p': probs,
-        'actual_win': y_test.values, # 1 if home won, 0 if away won
+        'actual_win': y_test_won, # 1 if home won, 0 if away won
         'home_ml': context_test['closing_home_moneyline']
     })
 
