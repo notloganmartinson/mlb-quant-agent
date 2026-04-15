@@ -14,7 +14,7 @@ from ml.preprocess import load_and_preprocess_data
 def optimize_xgboost():
     """
     Performs Grid Search to find the best hyperparameters for the MLB model.
-    Includes Tweedie variance power for overdispersion tuning.
+    Uses Poisson regression to maintain mathematical compatibility with Skellam.
     """
     print("Starting Hyperparameter Optimization for Calibrated Run Estimator...")
     X_train, X_test, y_train, y_test, _ = load_and_preprocess_data()
@@ -25,13 +25,12 @@ def optimize_xgboost():
         'estimator__max_depth': [3, 4, 5],
         'estimator__learning_rate': [0.01, 0.05, 0.1],
         'estimator__n_estimators': [100, 200],
-        'estimator__tweedie_variance_power': [1.1, 1.5, 1.9],
         'estimator__subsample': [0.8, 1.0]
     }
 
     # 2. Initialize Grid Search
-    # Tweedie objective is used for regression with overdispersion
-    base_model = xgb.XGBRegressor(objective='reg:tweedie', random_state=42)
+    # Use Poisson objective for Skellam-compatible run estimation
+    base_model = xgb.XGBRegressor(objective='count:poisson', random_state=42)
     grid_search = GridSearchCV(
         estimator=MultiOutputRegressor(base_model),
         param_grid=param_grid,

@@ -20,7 +20,7 @@ def run_2025_backtest():
     
     # 1. Load Data & Model
     X_train, X_test, y_train, y_test, context_test = load_and_preprocess_data()
-    model_path = "models/xgboost_baseline.joblib"
+    model_path = "models/xgboost_optimized.joblib"
     calib_path = "models/calibration_model.joblib"
     if not os.path.exists(model_path) or not os.path.exists(calib_path):
         print(f"Error: Models not found at {model_path} or {calib_path}. Run ml/train_xgboost.py first.")
@@ -32,6 +32,8 @@ def run_2025_backtest():
     y_test_pred = model.predict(X_test)
     test_prob_win_raw = skellam.sf(0, y_test_pred[:, 0], y_test_pred[:, 1])
     test_prob_tie_raw = skellam.pmf(0, y_test_pred[:, 0], y_test_pred[:, 1])
+    
+    # Skellam Correction: Account for ties
     test_win_prob_raw = test_prob_win_raw / (1 - test_prob_tie_raw)
     probs = iso_reg.transform(test_win_prob_raw)
     

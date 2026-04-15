@@ -65,3 +65,17 @@ def test_calculate_vaa_none_raises():
 def test_calculate_break_magnitude():
     # 3, 4 -> 5.0
     assert stats_calculator.calculate_break_magnitude(3.0, 4.0) == 5.0
+
+def test_calculate_rolling_stuff_plus_logic():
+    # Test with empty history: (0 + 100*100) / (0 + 100) = 100
+    assert stats_calculator.calculate_rolling_stuff_plus([]) == 100.0
+    
+    # Test with small history: history=[120, 120], prior_val=100, prior_weight=100
+    # (120+120 + 100*100) / (2 + 100) = (240 + 10000) / 102 = 10240 / 102 = 100.392
+    assert stats_calculator.calculate_rolling_stuff_plus([120, 120]) == 100.39
+    
+    # Test with large history (exceeding window)
+    # window=500, but let's test with custom smaller window to be sure
+    history = [150] * 200
+    # (150*50 + 100*10) / (50 + 10) = (7500 + 1000) / 60 = 8500 / 60 = 141.67
+    assert stats_calculator.calculate_rolling_stuff_plus(history, window=50, prior_weight=10) == 141.67

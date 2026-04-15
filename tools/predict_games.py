@@ -15,13 +15,16 @@ def predict_todays_games():
     """
     print(f"--- LIVE ML PREDICTION ENGINE (April 12, 2026) ---")
     
-    # 1. Load Model
-    model_path = "models/xgboost_calibrated.pkl"
-    if not os.path.exists(model_path):
-        print("Error: Calibrated model not found. Run ml/optimize.py first.")
+    # 1. Load Models
+    model_path = "models/xgboost_optimized.joblib"
+    calib_path = "models/calibration_model.joblib"
+    
+    if not os.path.exists(model_path) or not os.path.exists(calib_path):
+        print(f"Error: Models not found. Run ml/train_xgboost.py first.")
         return
     
     model = joblib.load(model_path)
+    iso_reg = joblib.load(calib_path)
 
     # 2. Fetch Live Market Data
     manager = MLBDbManager()
@@ -35,7 +38,7 @@ def predict_todays_games():
 
     # 3. Format Features (Must match Training Set exactly)
     features = [
-        'home_sp_stuff_plus', 'away_sp_stuff_plus', 
+        'home_sp_rolling_stuff', 'away_sp_rolling_stuff', 
         'home_sp_k_minus_bb', 'away_sp_k_minus_bb',
         'home_bullpen_siera', 'away_bullpen_siera',
         'home_lineup_iso_vs_pitcher_hand', 'away_lineup_iso_vs_pitcher_hand',
@@ -49,7 +52,14 @@ def predict_todays_games():
     # 4. Generate Probabilities (p) using Poisson + Skellam
     from scipy.stats import skellam
     y_pred = model.predict(X_live)
-    probs = 1 - skellam.cdf(0, y_pred[:, 0], y_pred[:, 1])
+    
+    # Skellam Correction: Account for ties (impossible in MLB)
+    prob_home_win_raw = skellam.sf(0, y_pred[:, 0], y_pred[:, 1])
+    prob_tie_raw = skellam.pmf(0, y_pred[:, 0], y_pred[:, 1])
+    probs_raw = prob_home_win_raw / (1 - prob_tie_raw)
+    
+    # Apply Calibration
+    probs = iso_reg.transform(probs_raw)
     
     # 5. Kelly Calculation & Reporting
     print(f"{'Matchup':<40} | {'Vegas Prob':<10} | {'Our Prob':<10} | {'Kelly Stake'}")

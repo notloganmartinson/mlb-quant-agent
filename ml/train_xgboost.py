@@ -22,43 +22,57 @@ def train_baseline_xgboost():
     # 1. Load Data
     X_train, X_test, y_train, y_test, _ = load_and_preprocess_data()
 
+    # Split training data for a dedicated calibration holdout (80/20 split)
+    # This prevents data leakage from the test set into the calibration model.
+    from sklearn.model_selection import train_test_split
+    X_base, X_calib, y_base, y_calib = train_test_split(
+        X_train, y_train, test_size=0.2, random_state=42, shuffle=False
+    )
+
     # 2. Initialize Model
     # Tweedie handles overdispersion better than Poisson.
-    # 1.5 is a common starting point for variance power.
+    # Updated to optimal hyperparameters found during optimization.
     base_model = xgb.XGBRegressor(
-        n_estimators=100,
-        max_depth=4,
-        learning_rate=0.1,
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.01,
         objective='count:poisson',
+        subsample=0.8,
         random_state=42
     )
     model = MultiOutputRegressor(base_model)
 
-    # 3. Train Model
-    model.fit(X_train, y_train)
+    # 3. Train Model on the base training split
+    model.fit(X_base, y_base)
 
     # 4. Evaluation & Calibration
-    y_train_pred = model.predict(X_train)
+    # A. Generate Calibration Probabilities from the Calibration Holdout
+    y_calib_pred = model.predict(X_calib)
+    calib_prob_win_raw = skellam.sf(0, y_calib_pred[:, 0], y_calib_pred[:, 1])
+    calib_prob_tie_raw = skellam.pmf(0, y_calib_pred[:, 0], y_calib_pred[:, 1])
+    calib_win_prob_raw = calib_prob_win_raw / (1 - calib_prob_tie_raw)
+    y_calib_won = (y_calib.iloc[:, 0] > y_calib.iloc[:, 1]).astype(int)
+
+    # B. Fit Calibration Engine on the Calibration Holdout
+    iso_reg = IsotonicRegression(out_of_bounds='clip')
+    iso_reg.fit(calib_win_prob_raw, y_calib_won)
+    
+    # C. Generate predictions for Test set
     y_test_pred = model.predict(X_test)
-    
-    # Raw Win Probabilities using Skellam
-    train_prob_win_raw = skellam.sf(0, y_train_pred[:, 0], y_train_pred[:, 1])
-    train_prob_tie_raw = skellam.pmf(0, y_train_pred[:, 0], y_train_pred[:, 1])
-    train_win_prob_raw = train_prob_win_raw / (1 - train_prob_tie_raw)
-    
     test_prob_win_raw = skellam.sf(0, y_test_pred[:, 0], y_test_pred[:, 1])
     test_prob_tie_raw = skellam.pmf(0, y_test_pred[:, 0], y_test_pred[:, 1])
     test_win_prob_raw = test_prob_win_raw / (1 - test_prob_tie_raw)
+    
+    # D. Generate predictions for full Training set (for logging metrics)
+    y_train_pred = model.predict(X_train)
+    train_prob_win_raw = skellam.sf(0, y_train_pred[:, 0], y_train_pred[:, 1])
+    train_prob_tie_raw = skellam.pmf(0, y_train_pred[:, 0], y_train_pred[:, 1])
+    train_win_prob_raw = train_prob_win_raw / (1 - train_prob_tie_raw)
     
     # Actual Outcomes
     y_train_won = (y_train.iloc[:, 0] > y_train.iloc[:, 1]).astype(int)
     y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
 
-    # Calibration Engine: Fit on Validation (Holdout)
-    # Note: In production, this should be done on a separate validation split.
-    iso_reg = IsotonicRegression(out_of_bounds='clip')
-    iso_reg.fit(test_win_prob_raw, y_test_won)
-    
     # Calibrated Probabilities
     test_win_prob_calibrated = iso_reg.transform(test_win_prob_raw)
     train_win_prob_calibrated = iso_reg.transform(train_win_prob_raw) # Approximated calibration

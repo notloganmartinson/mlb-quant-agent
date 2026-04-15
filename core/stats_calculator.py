@@ -80,16 +80,16 @@ def calculate_break_magnitude(pfx_x, pfx_z):
     assert pfx_x is not None and pfx_z is not None, "Movement inputs cannot be None"
     return np.round(np.sqrt(pfx_x**2 + pfx_z**2), 2)
 
-def calculate_rolling_stuff_plus(pitch_values, window=100, prior_val=100, prior_weight=20):
+def calculate_rolling_stuff_plus(pitch_values, window=500, prior_val=100, prior_weight=100):
     """
     Calculates the point-in-time rolling Stuff+ for a pitcher.
     Uses a Bayesian prior (league average = 100) to stabilize small samples (rookies).
     
     Args:
         pitch_values (list/np.array): A chronologically ordered list of Stuff+ values for a pitcher's prior pitches.
-        window (int): The trailing pitch window to average.
+        window (int): The trailing pitch window to average. Default 500 (~5-7 starts).
         prior_val (int): The league average baseline (e.g., 100).
-        prior_weight (int): Strength of the prior in pitch equivalents.
+        prior_weight (int): Strength of the prior in pitch equivalents. Default 100.
         
     Returns:
         float: The calculated Rolling Stuff+ score.
