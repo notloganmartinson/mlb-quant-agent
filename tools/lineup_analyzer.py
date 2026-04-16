@@ -35,8 +35,8 @@ class LineupAnalyzer:
             starting_9 = batters[:9]
             
             for player_id in starting_9:
-                # Query our DB for this player's metrics
-                query = f"SELECT name, iso, k_pct FROM starting_pitchers WHERE player_id = {player_id}"
+                # Query our DB for this player's metrics (ISO, K%)
+                query = f"SELECT name, iso, k_pct FROM players WHERE player_id = {player_id}"
                 res = self.manager.query_agent_data(query)
                 
                 if res:

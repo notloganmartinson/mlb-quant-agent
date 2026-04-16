@@ -62,7 +62,7 @@ mlb-agent/
 ### 1. Relational Initialization
 Build the database from the centralized SQL schema.
 ```bash
-python3 core/database.py
+python3 core/db_builder.py
 ```
 
 ### 2. Sequential Data Generation

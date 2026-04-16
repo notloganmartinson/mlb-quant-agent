@@ -194,16 +194,16 @@ def train_stuff_plus():
         conn.executemany("UPDATE raw_pitches SET stuff_plus = ? WHERE pitch_id = ?", update_data)
         conn.commit()
 
-    # 4. Update starting_pitchers with Latest Seasonal Values
-    print("\n--- PASS 4: Updating starting_pitchers (Latest Rolling) ---")
+    # 4. Update players with Latest Seasonal Values
+    print("\n--- PASS 4: Updating players (Latest Rolling) ---")
     current_season = datetime.now().year
     sp_count = 0
     for pid, history in pitcher_histories.items():
         if history:
             latest_val = calculate_rolling_stuff_plus(history)
-            manager.update_pitcher_stuff_plus(pid, current_season, round(latest_val, 2))
+            manager.update_player_stuff_plus(pid, current_season, round(latest_val, 2))
             sp_count += 1
-    print(f"Updated {sp_count} pitchers in starting_pitchers table.")
+    print(f"Updated {sp_count} pitchers in players table.")
 
     # 5. Link and Update historical_training_data
     print("\n--- PASS 5: Updating historical_training_data (Look-Ahead Bias Fix) ---")

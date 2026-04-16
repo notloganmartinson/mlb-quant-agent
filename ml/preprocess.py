@@ -22,6 +22,7 @@ def load_and_preprocess_data(db_path="data/mlb_betting.db"):
         'home_bullpen_siera', 'away_bullpen_siera',
         'home_lineup_iso_vs_pitcher_hand', 'away_lineup_iso_vs_pitcher_hand',
         'home_lineup_woba_vs_pitcher_hand', 'away_lineup_woba_vs_pitcher_hand',
+        'home_lineup_pa', 'away_lineup_pa',
         'park_factor_runs', 'temperature', 'wind_speed'
     ]
     

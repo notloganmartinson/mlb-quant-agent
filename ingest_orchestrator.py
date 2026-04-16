@@ -4,7 +4,7 @@ import sys
 # Ensure project root is in path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from scripts.ingest.stats import ingest_mlb_official_stats
+from scripts.ingest.mlb_official_stats import ingest_mlb_official_stats
 from scripts.ingest.odds import fetch_odds_espn
 from scripts.ingest.environment import fetch_weather
 from scripts.fetch_live_odds import fetch_odds_api

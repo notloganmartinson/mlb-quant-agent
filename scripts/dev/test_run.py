@@ -1,0 +1,2 @@
+from scripts.generate_training_data import generate_rolling_stats
+generate_rolling_stats(2023)

@@ -32,7 +32,7 @@ def ingest_2025_baseline():
                 "stuff_plus": None, "location_plus": None, "pitching_plus": None,
                 "iso": None, "k_pct": None
             }
-            manager.upsert_pitcher(pitcher_stats)
+            manager.upsert_player_stats(pitcher_stats)
         print(f"Successfully synced {len(all_pitchers)} historical pitchers.")
     except Exception as e:
         print(f"Error fetching 2025 pitchers: {e}")

@@ -90,7 +90,7 @@ The project underwent a significant architectural refactor to optimize for AI-as
 - **Verification:** Created `test_stats_calculator.py` to serve as a 100% verified baseline for all future math changes.
 
 #### Phase 2: Schema Isolation (`core/schema.sql`)
-- **Change:** Extracted all SQL `CREATE TABLE` and `DROP TABLE` statements from `core/database.py` into a standalone `core/schema.sql` file.
+- **Change:** Extracted all SQL `CREATE TABLE` and `DROP TABLE` statements from `core/db_builder.py` into a standalone `core/schema.sql` file.
 - **Reasoning:** This centralizes the "Source of Truth" for the database structure. It allows the agent to read the schema directly from a clean SQL file rather than parsing Python strings, reducing the potential for hallucination and making schema-aware prompts more efficient.
 
 #### Phase 3: Script Atomicity (`scripts/ingest/`)

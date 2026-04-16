@@ -12,8 +12,8 @@ DROP TABLE IF EXISTS sportsbook_odds;
 DROP TABLE IF EXISTS team_mappings;
 DROP TABLE IF EXISTS raw_pitches;
 
--- Table 1: starting_pitchers (Season-Aware)
-CREATE TABLE IF NOT EXISTS starting_pitchers (
+-- Table 1: players (Season-Aware)
+CREATE TABLE IF NOT EXISTS players (
     player_id INTEGER,
     season INTEGER,
     name TEXT NOT NULL,

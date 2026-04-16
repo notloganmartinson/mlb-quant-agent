@@ -34,8 +34,8 @@ def run_2025_backtest():
     test_prob_tie_raw = skellam.pmf(0, y_test_pred[:, 0], y_test_pred[:, 1])
     
     # Skellam Correction: Account for ties
-    test_win_prob_raw = test_prob_win_raw / (1 - test_prob_tie_raw)
-    probs = iso_reg.transform(test_win_prob_raw)
+    test_win_prob_raw = (test_prob_win_raw / (1 - test_prob_tie_raw)).reshape(-1, 1)
+    probs = iso_reg.predict_proba(test_win_prob_raw)[:, 1]
     
     # 3. Create results dataframe
     y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
@@ -43,7 +43,8 @@ def run_2025_backtest():
         'game_id': context_test['game_id'],
         'home_p': probs,
         'actual_win': y_test_won, # 1 if home won, 0 if away won
-        'home_ml': context_test['closing_home_moneyline']
+        'home_ml': context_test['closing_home_moneyline'],
+        'home_lineup_pa': X_test['home_lineup_pa']
     })
 
     # Drop games with missing market data
@@ -61,11 +62,14 @@ def run_2025_backtest():
     
     results_df['home_dec'] = results_df['home_ml'].apply(am_to_dec)
 
-    # 5. Kelly Criterion Logic (Home Only)
+    # 5. Kelly Criterion Logic with Variance Adjustment (LCF)
     fractional_kelly = 0.25
     
     results_df['home_kelly'] = ((results_df['home_dec'] - 1) * results_df['home_p'] - (1 - results_df['home_p'])) / (results_df['home_dec'] - 1)
     results_df['home_edge'] = (results_df['home_p'] * results_df['home_dec']) - 1
+    
+    # Lineup Confidence Factor (LCF): Scale stake based on cumulative PA (Stabilization at 250 PA)
+    results_df['lcf'] = (results_df['home_lineup_pa'] / 250.0).clip(upper=1.0)
     
     # Decide which side to bet (Home Only with Dynamic EV Thresholding)
     def determine_bet(row):
@@ -76,7 +80,9 @@ def run_2025_backtest():
             ev_threshold = 0.08 # 8% for Heavy Underdogs (protecting from noise)
             
         if row['home_edge'] > ev_threshold:
-            return 'HOME', max(0, row['home_kelly']) * fractional_kelly
+            # Apply LCF to the fractional stake
+            final_stake = max(0, row['home_kelly']) * fractional_kelly * row['lcf']
+            return 'HOME', final_stake
         return 'NONE', 0.0
 
     bets = results_df.apply(determine_bet, axis=1, result_type='expand')

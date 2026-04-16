@@ -11,8 +11,8 @@ class ValueFinder:
         Calculates a weighted average of 2025 (70%) and 2026 (30%) stats
         to stabilize early-season volatility.
         """
-        query_2025 = f"SELECT {stat_name} FROM starting_pitchers WHERE player_id = {player_id} AND season = 2025"
-        query_2026 = f"SELECT {stat_name} FROM starting_pitchers WHERE player_id = {player_id} AND season = 2026"
+        query_2025 = f"SELECT {stat_name} FROM players WHERE player_id = {player_id} AND season = 2025"
+        query_2026 = f"SELECT {stat_name} FROM players WHERE player_id = {player_id} AND season = 2026"
         
         res_2025 = self.manager.query_agent_data(query_2025)
         res_2026 = self.manager.query_agent_data(query_2026)
