@@ -4,7 +4,7 @@ A high-performance, modular data pipeline and calculation engine designed for qu
 
 ## Core Features
 
-- **Syndicate-Grade Predictive Engine:** Advanced XGBoost model featuring Skellam-based win probabilities, Tweedie overdispersion handling, and Isotonic Calibration for professional-grade $p$ value accuracy.
+- **Syndicate-Grade Predictive Engine:** Advanced XGBoost Binary Classifier (`binary:logistic`) optimized for log-loss, featuring strict non-parametric Isotonic Calibration for professional-grade $p$-value accuracy and Dynamic EV Thresholding.
 - **Modular "Shattered" Pipeline:** Domain-specific ingestion modules (Stats, Odds, Environment) orchestrated for maximum reliability and ease of debugging.
 - **Fail-Fast Mathematical Guardrails:** Strict `assert` statements in the statistical engine to prevent "Silent Failures" and ensure data integrity.
 - **Schema Isolation:** Centralized `schema.sql` source of truth for all relational tables, separating definition from execution.

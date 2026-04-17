@@ -5,7 +5,6 @@ import sqlite3
 import os
 import sys
 import numpy as np
-from scipy.stats import skellam
 
 # Ensure project root is in path for imports
 sys.path.append(os.getcwd())
@@ -13,29 +12,26 @@ from ml.preprocess import load_and_preprocess_data
 
 def run_2025_backtest():
     """
-    Simulates the 2025 season using the optimized XGBoost model 
+    Simulates the 2025 season using the optimized XGBoost Binary Classifier
     and calculates P&L using the Kelly Criterion.
     """
-    print("Starting 2025 Historical Backtest...")
+    print("Starting 2025 Historical Backtest (Binary Classifier)...")
     
     # 1. Load Data & Model
     X_train, X_test, y_train, y_test, context_test = load_and_preprocess_data()
     model_path = "models/xgboost_optimized.joblib"
     calib_path = "models/calibration_model.joblib"
     if not os.path.exists(model_path) or not os.path.exists(calib_path):
-        print(f"Error: Models not found at {model_path} or {calib_path}. Run ml/train_xgboost.py first.")
+        print(f"Error: Models not found at {model_path} or {calib_path}. Run ml/optimize.py then train calibration first.")
         return
     model = joblib.load(model_path)
     iso_reg = joblib.load(calib_path)
 
     # 2. Get Predicted Probabilities (p)
-    y_test_pred = model.predict(X_test)
-    test_prob_win_raw = skellam.sf(0, y_test_pred[:, 0], y_test_pred[:, 1])
-    test_prob_tie_raw = skellam.pmf(0, y_test_pred[:, 0], y_test_pred[:, 1])
+    raw_probs = model.predict_proba(X_test)[:, 1]
     
-    # Skellam Correction: Account for ties
-    test_win_prob_raw = (test_prob_win_raw / (1 - test_prob_tie_raw)).reshape(-1, 1)
-    probs = iso_reg.predict_proba(test_win_prob_raw)[:, 1]
+    # Isotonic Calibration (using .predict instead of .predict_proba for IsotonicRegression)
+    probs = iso_reg.predict(raw_probs)
     
     # 3. Create results dataframe
     y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
@@ -104,7 +100,7 @@ def run_2025_backtest():
     win_rate = (bets_won / total_bets) if total_bets > 0 else 0
     
     summary = f"""
-2025 Backtest Summary (A/B Test: Stable Baseline + Dynamic EV Thresholding):
+2025 Backtest Summary (Binary Classifier + Isotonic Calibration):
   -> Total Games Simulated: {len(results_df)}
   -> Total Bets Placed: {total_bets}
   -> Total Bets Won: {bets_won}

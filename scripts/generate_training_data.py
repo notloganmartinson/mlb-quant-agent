@@ -93,7 +93,9 @@ def get_rolling_feature_map(season):
             away_sp = g.get('teams', {}).get('away', {}).get('probablePitcher', {}).get('id')
             game_hand_map[pk] = {
                 'home_sp_hand': hand_map.get(home_sp, 'R'), 
-                'away_sp_hand': hand_map.get(away_sp, 'R')
+                'away_sp_hand': hand_map.get(away_sp, 'R'),
+                'home_sp_id': home_sp,
+                'away_sp_id': away_sp
             }
             # Extract starting 9 lineups
             home_lineup = [p['id'] for p in g.get('lineups', {}).get('homePlayers', [])[:9]]
@@ -149,7 +151,7 @@ def get_rolling_feature_map(season):
             tp_roll['airOuts'] += 30
             tp['siera'] = stats_calculator.calculate_siera(tp_roll['strikeOuts'], tp_roll['baseOnBalls'], tp_roll['battersFaced'], tp_roll['groundOuts'], tp_roll['airOuts'], 0)
             tp['k_bb'] = stats_calculator.calculate_k_minus_bb_percent(tp_roll['strikeOuts'], tp_roll['baseOnBalls'], tp_roll['battersFaced'])
-            tp_filled = tp.set_index('date').reindex(all_dates).ffill().bfill()
+            tp_filled = tp.set_index('date').reindex(all_dates).ffill().fillna({'siera': 4.20, 'k_bb': 0.14})
             for d, row in tp_filled.iterrows():
                 lookup[(tid, d, 'p')] = {'siera': float(row['siera']), 'k_bb': float(row['k_bb'])}
 
@@ -181,7 +183,7 @@ def get_rolling_feature_map(season):
                 # Track cumulative PA without the prior for the stability metric
                 th_hand['pa_count'] = th_hand['plateAppearances'].expanding().sum().shift(1).fillna(0)
                 
-                th_hand_filled = th_hand.set_index('date').reindex(all_dates).ffill().bfill()
+                th_hand_filled = th_hand.set_index('date').reindex(all_dates).ffill().fillna({'iso': 0.150, 'woba': 0.315, 'pa_count': 0.0})
                 for d, row in th_hand_filled.iterrows():
                     lookup[(pid, d, 'h', hand)] = {
                         'iso': float(row['iso']), 
@@ -223,6 +225,20 @@ def generate_rolling_stats(season):
                 # Opposing starter hand
                 h_sp_hand = game_hand_map.get(game_pk, {}).get('home_sp_hand', 'R')
                 a_sp_hand = game_hand_map.get(game_pk, {}).get('away_sp_hand', 'R')
+                h_sp_id = game_hand_map.get(game_pk, {}).get('home_sp_id')
+                a_sp_id = game_hand_map.get(game_pk, {}).get('away_sp_id')
+
+                h_roll_stuff = 100.0
+                if h_sp_id:
+                    h_pitches = manager.get_pitcher_prior_pitches(h_sp_id, date)
+                    if h_pitches:
+                        h_roll_stuff = stats_calculator.calculate_rolling_stuff_plus(h_pitches)
+
+                a_roll_stuff = 100.0
+                if a_sp_id:
+                    a_pitches = manager.get_pitcher_prior_pitches(a_sp_id, date)
+                    if a_pitches:
+                        a_roll_stuff = stats_calculator.calculate_rolling_stuff_plus(a_pitches)
                 
                 # Lineup Roll-Up (Individual Batters)
                 lineups = game_lineup_map.get(game_pk, {'home': [], 'away': []})
@@ -253,7 +269,7 @@ def generate_rolling_stats(season):
                     "home_lineup_pa": h_lineup_pa, "away_lineup_pa": a_lineup_pa,
                     "park_factor_runs": 1.0, "temperature": 70.0, "wind_speed": 5.0, "wind_direction": "Neutral",
                     "closing_home_moneyline": None, "closing_away_moneyline": None, "closing_total": None,
-                    "home_sp_rolling_stuff": 100.0, "away_sp_rolling_stuff": 100.0
+                    "home_sp_rolling_stuff": h_roll_stuff, "away_sp_rolling_stuff": a_roll_stuff
                 })
             
             print(f"  Processed {season}-{start} to {end}. Sleeping 2s...")
@@ -265,5 +281,5 @@ def generate_rolling_stats(season):
     print(f"Season {season} Complete.")
 
 if __name__ == "__main__":
-    for s in [2023, 2024, 2025]:
+    for s in [2022, 2023, 2024, 2025]:
         generate_rolling_stats(s)

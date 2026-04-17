@@ -1,8 +1,6 @@
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import log_loss, mean_absolute_error
-from sklearn.multioutput import MultiOutputRegressor
-from scipy.stats import skellam
+from sklearn.metrics import log_loss
 import joblib
 import os
 import sys
@@ -13,54 +11,47 @@ from ml.preprocess import load_and_preprocess_data
 
 def optimize_xgboost():
     """
-    Performs Grid Search to find the best hyperparameters for the MLB model.
-    Uses Poisson regression to maintain mathematical compatibility with Skellam.
+    Performs Grid Search to find the best hyperparameters for the MLB binary classifier.
+    Optimizes directly for Log-Loss.
     """
-    print("Starting Hyperparameter Optimization for Calibrated Run Estimator...")
+    print("Starting Hyperparameter Optimization for Binary Classifier...")
     X_train, X_test, y_train, y_test, _ = load_and_preprocess_data()
 
+    # Convert target to binary
+    y_train_won = (y_train.iloc[:, 0] > y_train.iloc[:, 1]).astype(int)
+    y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
+
     # 1. Define Search Space
-    # Prefix with estimator__ for MultiOutputRegressor
     param_grid = {
-        'estimator__max_depth': [3, 4, 5],
-        'estimator__learning_rate': [0.01, 0.05, 0.1],
-        'estimator__n_estimators': [100, 200],
-        'estimator__subsample': [0.8, 1.0]
+        'max_depth': [3, 4, 5],
+        'learning_rate': [0.01, 0.05, 0.1],
+        'n_estimators': [100, 200, 300],
+        'subsample': [0.8, 1.0]
     }
 
     # 2. Initialize Grid Search
-    # Use Poisson objective for Skellam-compatible run estimation
-    base_model = xgb.XGBRegressor(objective='count:poisson', random_state=42)
+    base_model = xgb.XGBClassifier(objective='binary:logistic', random_state=42, eval_metric='logloss')
     grid_search = GridSearchCV(
-        estimator=MultiOutputRegressor(base_model),
+        estimator=base_model,
         param_grid=param_grid,
-        scoring='neg_mean_absolute_error',
+        scoring='neg_log_loss',
         cv=3,
         verbose=1
     )
 
     # 3. Fit Grid Search
-    grid_search.fit(X_train, y_train)
+    grid_search.fit(X_train, y_train_won)
 
     best_model = grid_search.best_estimator_
     print(f"\nBest Parameters Found: {grid_search.best_params_}")
 
     # 4. Final Evaluation
-    y_test_pred = best_model.predict(X_test)
+    raw_probs_test = best_model.predict_proba(X_test)[:, 1]
     
-    # Calculate Raw Win Probability using Skellam
-    prob_win_raw = skellam.sf(0, y_test_pred[:, 0], y_test_pred[:, 1])
-    prob_tie_raw = skellam.pmf(0, y_test_pred[:, 0], y_test_pred[:, 1])
-    test_win_prob_raw = prob_win_raw / (1 - prob_tie_raw)
+    raw_loss = log_loss(y_test_won, raw_probs_test)
     
-    y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
-    
-    raw_loss = log_loss(y_test_won, test_win_prob_raw)
-    mae = mean_absolute_error(y_test, y_test_pred)
-    
-    print(f"\nOptimized Results (Raw, 2022 Holdout):")
+    print(f"\nOptimized Results (Raw, 2025 Holdout):")
     print(f"  -> Best Win Log-Loss (Raw): {raw_loss:.4f}")
-    print(f"  -> Mean Absolute Error (Runs): {mae:.4f}")
 
     # 5. Save Optimized Model
     os.makedirs("models", exist_ok=True)

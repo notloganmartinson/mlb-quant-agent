@@ -109,7 +109,9 @@ CREATE TABLE IF NOT EXISTS historical_training_data (
     home_team_id INTEGER,
     away_team_id INTEGER,
     -- THE TARGET
-    home_team_won INTEGER, 
+    home_team_won INTEGER,
+    home_team_runs INTEGER,
+    away_team_runs INTEGER,
     -- Pitching Features
     home_sp_siera REAL,
     away_sp_siera REAL,
