@@ -188,3 +188,29 @@ A ~5% ROI with a 41.87% win rate proves the model has evolved from a simple outc
 
 **Next Step for Live Deployment:**
 To protect this alpha in the live 2026 market, the system must account for "The Lineup Certainty Illusion." The live agent must rely on projected lineups and incorporate a dynamic hedging/cancellation protocol if late scratches heavily degrade the Expected Value (EV) prior to first pitch. Continuous 30-day Walk-Forward retraining will be necessary to defend against live regime changes.
+
+---
+
+## Phase VIII: Professional Quant Elevation & The K-Prop Sprint (April 2026)
+
+### 1. Abstract
+The research objectives were expanded from binary game-win classification to discrete event prediction (Pitcher Strikeouts) and atmospheric environmental modeling. This phase represents the transition from a heuristic baseline to a professional-grade quantitative architecture by eliminating several critical "Scoffs" (methodological shortcuts).
+
+### 2. Probabilistic K-Prop Engine
+**The Innovation:** Shifted from directional accuracy (Over/Under 4.5) to an Expected Value (EV) engine.
+**Methodology:** Utilized a discrete Poisson Cumulative Distribution Function (CDF) to convert the XGBoost mean prediction ($\lambda$) into the probability of hitting a specific market line. This allows for direct comparison against sportsbook implied probabilities to identify mathematical edge.
+**Bet Sizing:** Integrated a 0.25 Fractional Kelly Criterion to simulate realistic bankroll growth and financial risk management.
+
+### 3. Feature Engineering: The Professional Layer
+Four high-alpha features were introduced to increase model signal:
+1.  **Umpire K-Tendencies:** Developed a dynamic, look-ahead-free scraper to track the unique strikeout percentages of every MLB home plate umpire.
+2.  **Park K-Factors:** Replaced generic run-scoring park factors with strikeout-specific multipliers calculated from historical home/away K% ratios.
+3.  **The Bullpen Engine:** Eliminated the "Starter-as-Proxy" bias. The system now identifies the Top 5 relief pitchers by recent utilization and aggregates their rolling skill metrics (SIERA/K-BB%).
+4.  **Atmospheric Physics (Density Altitude):** Integrated the Open-Meteo Historical API to calculate game-time Density Altitude. This accounts for the impact of temperature and barometric pressure on pitch movement and ball flight distance.
+
+### 4. The Quant Experiment Registry
+**The Issue:** Ephemeral result tracking led to "Memory Loss" during model tuning, making it difficult to objectively prove if new features (like Density Altitude) actually improved ROI.
+**The Solution:** Implemented a SQLite-backed registry (`registry.db`) to log every training and backtest run. Each entry is tagged with a label and persists the exact features, parameters, and metrics used, along with an archive of binary model artifacts. This provides an immutable ledger of the research process.
+
+### 5. Conclusion: Towards Proprietary Data
+The discovery that historical player prop odds are increasingly gated behind high-security paywalls led to a pivot in data strategy. The research now prioritizes the creation of a **Proprietary Odds Archive**—a daily automated ingestion of live market prices to build a private, high-resolution historical dataset for free.

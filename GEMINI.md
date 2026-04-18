@@ -34,9 +34,6 @@ class ValueFinder:
     def get_weighted_stat(self, player_id, stat_name): # Calculates a weighted average of 2025 (70%) and 2026 (30%) stats
     def find_value_today(self):
 
-# tools/predict_games.py
-def predict_todays_games(): # Loads the optimized XGBoost model and applies it to today's betting_markets.
-
 # tests/test_stats_calculator.py
 def test_calculate_iso_scalar():
 def test_calculate_iso_vectorized():
@@ -56,16 +53,23 @@ def test_calculate_rolling_stuff_plus_logic():
 def load_and_preprocess_data(db_path): # Loads data from historical_training_data and prepares it for XGBoost.
 
 # ml/train_xgboost.py
-def train_baseline_xgboost(): # Trains an initial XGBoost model and establishes a baseline Log-Loss.
+def train_baseline_xgboost(): # Trains an XGBoost binary classifier to predict home team win probability directly.
 
 # ml/train_stuff_plus.py
 def train_stuff_plus(): # Trains a pitch-level model to calculate Stuff+ (normalized whiff probability).
 
 # ml/optimize.py
-def optimize_xgboost(): # Performs Grid Search to find the best hyperparameters for the MLB model.
+def optimize_xgboost(): # Performs Grid Search to find the best hyperparameters for the MLB binary classifier.
+
+# ml/backtest_k_props.py
+def run_k_prop_backtest(): # Evaluates the strikeout model on 2025 data.
+
+# ml/train_k_props.py
+def load_k_prop_data(db_path): # Loads data for strikeout props, stacking home and away pitchers.
+def train_k_props(): # Trains an XGBRegressor to predict SP strikeout counts.
 
 # ml/backtest.py
-def run_2025_backtest(): # Simulates the 2025 season using the optimized XGBoost model
+def run_2025_backtest(): # Simulates the 2025 season using the optimized XGBoost Binary Classifier
 
 # core/db_builder.py
 def build_database(): # Initializes/Updates the mlb_betting.db using the patch-based migration system.
@@ -101,6 +105,10 @@ class MLBDbManager:
     def resolve_team_id(self, name) -> int: # Translates a team name into the canonical mlb_id.
     def query_agent_data(self, sql_query):
 
+# scripts/patch_strikeout_data.py
+def fetch_and_update(game_id): # Fetches correct strikeout counts for a single game.
+def patch_strikeouts():
+
 # scripts/migrate.py
 def run_migrations(): # Architects a safe, patch-based database migration system.
 
@@ -115,10 +123,13 @@ def fetch_odds_api(): # Standalone utility to fetch live MLB odds (Moneyline, Ru
 
 # scripts/generate_training_data.py
 def clean_stat(val):
-def fetch_team_logs(team_id, season, group):
-def fetch_player_logs_chunked(player_ids, season): # Fetches gameLog stats for a chunk of player IDs.
+def fetch_player_logs_chunked(player_ids, season, group): # Fetches gameLog stats for a chunk of player IDs.
 def get_rolling_feature_map(season):
 def generate_rolling_stats(season):
+
+# scripts/fetch_historical_k_lines.py
+def fetch_k_lines_for_date(date_str): # Fetches strikeout props from Action Network API.
+def update_k_lines():
 
 # scripts/fetch_historical_odds.py
 def fetch_sbr_odds_playwright(date_str):
@@ -162,6 +173,9 @@ def ingest_production_statcast(): # Production-scale ingestion: 7-day chunks, pa
 # scripts/dev/validate_lineup.py
 def get_iso_upto(player_id, date, season):
 def validate():
+
+# scripts/dev/test_run.py
+def test_one_day():
 
 # scripts/dev/debug_sbr.py
 def debug_sbr_fetch(date_str):

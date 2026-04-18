@@ -41,9 +41,9 @@ scripts/*.py_temp
 
 # Logs & Reports
 *.log
+reports/runs/
+!reports/registry.db
 reports/*.png
-reports/*.html
-reports/*.txt
 
 # OS specific
 .DS_Store

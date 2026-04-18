@@ -1,0 +1,29 @@
+=== STUFF+ MODEL TRAINING REPORT ===
+Date: 2026-04-14 13:35:08
+Total Pitches Trained: 2853971
+Model Log-Loss: 0.3306
+
+--- FEATURE IMPORTANCE ---
+vaa: 938.0
+pfx_z: 630.0
+release_speed: 465.0
+pfx_x: 205.0
+release_spin_rate: 189.0
+break_magnitude: 187.0
+release_extension: 127.0
+pitch_type_FF: 91.0
+pitch_type_SI: 76.0
+pitch_type_CH: 63.0
+
+--- TOP 10 STUFF+ LEADERBOARD (min 20 pitches) ---
+Pitcher ID   Season   Pitches    Stuff+    
+642585       2023     977        224.10    
+623352       2024     1153       216.75    
+623352       2023     1020       205.42    
+623352       2022     940        196.47    
+547973       2025     935        194.43    
+623352       2025     860        184.66    
+676475       2023     45         166.60    
+664670       2022     26         165.42    
+676609       2025     28         164.99    
+656629       2024     1143       163.63    

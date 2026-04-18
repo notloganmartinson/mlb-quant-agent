@@ -213,7 +213,9 @@ class MLBDbManager:
                 wind_speed, wind_direction, full_game_home_moneyline, 
                 full_game_away_moneyline, full_game_total, implied_prob_home,
                 home_sp_rolling_stuff, away_sp_rolling_stuff,
-                home_lineup_pa, away_lineup_pa
+                home_lineup_pa, away_lineup_pa,
+                home_sp_strikeouts, away_sp_strikeouts,
+                home_lineup_k_pct, away_lineup_k_pct
             ) VALUES (
                 :game_id, :home_team_id, :away_team_id, :home_team, :away_team, 
                 :home_pitcher, :away_pitcher, :home_sp_siera, :away_sp_siera, 
@@ -224,7 +226,9 @@ class MLBDbManager:
                 :wind_speed, :wind_direction, :full_game_home_moneyline, 
                 :full_game_away_moneyline, :full_game_total, :implied_prob_home,
                 :home_sp_rolling_stuff, :away_sp_rolling_stuff,
-                :home_lineup_pa, :away_lineup_pa
+                :home_lineup_pa, :away_lineup_pa,
+                :home_sp_strikeouts, :away_sp_strikeouts,
+                :home_lineup_k_pct, :away_lineup_k_pct
             )
             ON CONFLICT(game_id) DO UPDATE SET
                 full_game_home_moneyline = excluded.full_game_home_moneyline,
@@ -252,7 +256,11 @@ class MLBDbManager:
                 home_sp_rolling_stuff = COALESCE(excluded.home_sp_rolling_stuff, betting_markets.home_sp_rolling_stuff),
                 away_sp_rolling_stuff = COALESCE(excluded.away_sp_rolling_stuff, betting_markets.away_sp_rolling_stuff),
                 home_lineup_pa = COALESCE(excluded.home_lineup_pa, betting_markets.home_lineup_pa),
-                away_lineup_pa = COALESCE(excluded.away_lineup_pa, betting_markets.away_lineup_pa)
+                away_lineup_pa = COALESCE(excluded.away_lineup_pa, betting_markets.away_lineup_pa),
+                home_sp_strikeouts = COALESCE(excluded.home_sp_strikeouts, betting_markets.home_sp_strikeouts),
+                away_sp_strikeouts = COALESCE(excluded.away_sp_strikeouts, betting_markets.away_sp_strikeouts),
+                home_lineup_k_pct = COALESCE(excluded.home_lineup_k_pct, betting_markets.home_lineup_k_pct),
+                away_lineup_k_pct = COALESCE(excluded.away_lineup_k_pct, betting_markets.away_lineup_k_pct)
         """
         with self._get_connection() as conn:
             conn.execute(sql, data)
@@ -270,7 +278,9 @@ class MLBDbManager:
                 wind_speed, wind_direction, closing_home_moneyline, 
                 closing_away_moneyline, closing_total,
                 home_sp_rolling_stuff, away_sp_rolling_stuff,
-                home_lineup_pa, away_lineup_pa
+                home_lineup_pa, away_lineup_pa,
+                home_sp_strikeouts, away_sp_strikeouts,
+                home_lineup_k_pct, away_lineup_k_pct
             ) VALUES (
                 :game_id, :game_date, :home_team_id, :away_team_id, :home_team_won, 
                 :home_team_runs, :away_team_runs,
@@ -281,7 +291,9 @@ class MLBDbManager:
                 :wind_speed, :wind_direction, :closing_home_moneyline, 
                 :closing_away_moneyline, :closing_total,
                 :home_sp_rolling_stuff, :away_sp_rolling_stuff,
-                :home_lineup_pa, :away_lineup_pa
+                :home_lineup_pa, :away_lineup_pa,
+                :home_sp_strikeouts, :away_sp_strikeouts,
+                :home_lineup_k_pct, :away_lineup_k_pct
             )
             ON CONFLICT(game_id) DO UPDATE SET
                 home_team_won = excluded.home_team_won,
@@ -305,7 +317,11 @@ class MLBDbManager:
                 home_sp_rolling_stuff = excluded.home_sp_rolling_stuff,
                 away_sp_rolling_stuff = excluded.away_sp_rolling_stuff,
                 home_lineup_pa = excluded.home_lineup_pa,
-                away_lineup_pa = excluded.away_lineup_pa
+                away_lineup_pa = excluded.away_lineup_pa,
+                home_sp_strikeouts = excluded.home_sp_strikeouts,
+                away_sp_strikeouts = excluded.away_sp_strikeouts,
+                home_lineup_k_pct = excluded.home_lineup_k_pct,
+                away_lineup_k_pct = excluded.away_lineup_k_pct
         """
         with self._get_connection() as conn:
             conn.execute(sql, data)
