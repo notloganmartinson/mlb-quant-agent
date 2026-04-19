@@ -2,7 +2,8 @@ import pandas as pd
 import joblib
 import numpy as np
 import os
-from scipy.stats import poisson
+import json
+from scipy.stats import poisson, nbinom
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import argparse
 from tools.experiment_logger import logger
@@ -27,16 +28,28 @@ def calculate_kelly(p, dec_odds, fraction=0.25):
 def run_k_prop_backtest(label="K-Prop Backtest"):
     """
     Evaluates the strikeout model on 2025 data.
-    Simulates a betting bankroll using Poisson CDF and Kelly Criterion.
+    Simulates a betting bankroll using Negative Binomial CDF and Kelly Criterion.
     """
     model_path = "models/xgboost_k_props.joblib"
+    config_path = "models/k_prop_config.json"
+    
     if not os.path.exists(model_path):
         print(f"Error: Model not found at {model_path}. Please run ml/train_k_props.py first.")
         return
 
-    print(f"Loading model and 2025 data for backtest: {label}...")
+    # Load Model and Dispersion Config
+    print(f"Loading model and configuration for backtest: {label}...")
     model = joblib.load(model_path)
     
+    phi = 1.0
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            phi = config.get('dispersion_phi', 1.0)
+            print(f"  -> Loaded Dispersion Factor (phi): {phi:.4f}")
+    else:
+        print("  -> Warning: k_prop_config.json not found. Falling back to Poisson (phi=1.0).")
+
     manager = MLBDbManager()
     conn = manager._get_connection()
     
@@ -77,13 +90,26 @@ def run_k_prop_backtest(label="K-Prop Backtest"):
     features = ['sp_rolling_stuff', 'sp_k_minus_bb', 'opposing_lineup_k_pct', 'park_factor_runs', 'park_factor_k', 'umpire_k_pct', 'bullpen_k_bb']
     X_test = test_df[features].apply(pd.to_numeric, errors='coerce')
     
-    print(f"Backtesting {len(test_df)} pitcher appearances using Poisson CDF & Kelly Criterion...")
+    print(f"Backtesting {len(test_df)} pitcher appearances using {'Negative Binomial' if phi > 1.01 else 'Poisson'} CDF & Kelly Criterion...")
 
     # 1. Model Prediction (Lambda / Expected Mean)
     test_df['pred_lambda'] = model.predict(X_test)
     
-    # 2. Probability Engine (Poisson)
-    test_df['prob_under'] = poisson.cdf(np.floor(test_df['line']), test_df['pred_lambda'])
+    # 2. Probability Engine (Negative Binomial or Poisson)
+    if phi > 1.01:
+        # Negative Binomial parameters (Scipy nbinom uses n, p): 
+        # Scipy 'p' is probability of success, 'n' is number of successes.
+        # Our phi = Variance / Mean. 
+        # Relationship: Mean = n(1-p)/p, Var = n(1-p)/p^2
+        # Solving for p and n:
+        # p = Mean / Var = 1 / phi
+        # n = Mean^2 / (Var - Mean) = Mean / (phi - 1)
+        p_param = 1.0 / phi
+        n_param = test_df['pred_lambda'] / (phi - 1.0)
+        test_df['prob_under'] = nbinom.cdf(np.floor(test_df['line']), n_param, p_param)
+    else:
+        test_df['prob_under'] = poisson.cdf(np.floor(test_df['line']), test_df['pred_lambda'])
+        
     test_df['prob_over'] = 1 - test_df['prob_under']
     
     # 3. Implied Odds
@@ -92,51 +118,85 @@ def run_k_prop_backtest(label="K-Prop Backtest"):
     test_df['implied_over'] = 1 / test_df['dec_over']
     test_df['implied_under'] = 1 / test_df['dec_under']
     
-    # 4. Bankroll Simulation
+    # 4. Bankroll Simulation (Simultaneous Daily Kelly)
     initial_bankroll = 1000
     current_bankroll = initial_bankroll
-    
+    max_daily_risk = 0.10  # Never risk more than 10% of total bankroll per day
+    kelly_fraction = 0.25
+    min_edge = 0.02
+
     total_staked = 0
     total_profit = 0
     bets_placed = 0
     wins = 0
     
-    for idx, row in test_df.iterrows():
-        edge_over = row['prob_over'] - row['implied_over']
-        edge_under = row['prob_under'] - row['implied_under']
+    # Sort for sequential day-by-day processing
+    test_df = test_df.sort_values('game_date')
+    
+    print(f"Running simulation with {max_daily_risk*100}% Max Daily Risk and {kelly_fraction} Fractional Kelly...")
+
+    for date, day_df in test_df.groupby('game_date'):
+        day_bets = []
         
-        stake = 0
-        profit = 0
-        is_bet = False
-        won = False
+        # Identify all potential bets for the day
+        for idx, row in day_df.iterrows():
+            edge_over = row['prob_over'] - row['implied_over']
+            edge_under = row['prob_under'] - row['implied_under']
+            
+            if edge_over > min_edge and edge_over > edge_under:
+                k_pct = calculate_kelly(row['prob_over'], row['dec_over'], kelly_fraction)
+                if k_pct > 0:
+                    day_bets.append({
+                        'side': 'OVER',
+                        'k_pct': k_pct,
+                        'dec_odds': row['dec_over'],
+                        'actual_k': row['actual_k'],
+                        'line': row['line']
+                    })
+            elif edge_under > min_edge and edge_under > edge_over:
+                k_pct = calculate_kelly(row['prob_under'], row['dec_under'], kelly_fraction)
+                if k_pct > 0:
+                    day_bets.append({
+                        'side': 'UNDER',
+                        'k_pct': k_pct,
+                        'dec_odds': row['dec_under'],
+                        'actual_k': row['actual_k'],
+                        'line': row['line']
+                    })
+
+        if not day_bets:
+            continue
+
+        # Calculate Simultaneous Scaling
+        total_raw_fractions = sum(b['k_pct'] for b in day_bets)
+        scaling_factor = 1.0
+        if total_raw_fractions > max_daily_risk:
+            scaling_factor = max_daily_risk / total_raw_fractions
         
-        if edge_over > 0.02 and edge_over > edge_under:
-            kelly_pct = calculate_kelly(row['prob_over'], row['dec_over'], 0.25)
-            stake = current_bankroll * kelly_pct
-            if row['actual_k'] > row['line']:
-                profit = stake * (row['dec_over'] - 1)
-                won = True
-            else:
-                profit = -stake
-            is_bet = True
+        day_pnl = 0
+        for bet in day_bets:
+            actual_stake = current_bankroll * bet['k_pct'] * scaling_factor
             
-        elif edge_under > 0.02 and edge_under > edge_over:
-            kelly_pct = calculate_kelly(row['prob_under'], row['dec_under'], 0.25)
-            stake = current_bankroll * kelly_pct
-            if row['actual_k'] < row['line']:
-                profit = stake * (row['dec_under'] - 1)
+            # Resolve Bet
+            won = False
+            if bet['side'] == 'OVER' and bet['actual_k'] > bet['line']:
                 won = True
-            else:
-                profit = -stake
-            is_bet = True
+            elif bet['side'] == 'UNDER' and bet['actual_k'] < bet['line']:
+                won = True
             
-        if is_bet and stake > 0:
-            bets_placed += 1
-            total_staked += stake
-            total_profit += profit
-            current_bankroll += profit
             if won:
+                profit = actual_stake * (bet['dec_odds'] - 1)
                 wins += 1
+            else:
+                profit = -actual_stake
+            
+            day_pnl += profit
+            total_staked += actual_stake
+            bets_placed += 1
+
+        # End of day bankroll update
+        current_bankroll += day_pnl
+        total_profit += day_pnl
 
     roi = (total_profit / total_staked) * 100 if total_staked > 0 else 0
     hit_rate = (wins / bets_placed) * 100 if bets_placed > 0 else 0

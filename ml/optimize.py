@@ -8,6 +8,7 @@ import sys
 # Ensure project root is in path for imports
 sys.path.append(os.getcwd())
 from ml.preprocess import load_and_preprocess_data
+from tools.experiment_logger import logger
 
 def optimize_xgboost():
     """
@@ -43,20 +44,37 @@ def optimize_xgboost():
     grid_search.fit(X_train, y_train_won)
 
     best_model = grid_search.best_estimator_
-    print(f"\nBest Parameters Found: {grid_search.best_params_}")
+    best_params = grid_search.best_params_
+    print(f"\nBest Parameters Found: {best_params}")
 
     # 4. Final Evaluation
     raw_probs_test = best_model.predict_proba(X_test)[:, 1]
-    
+
     raw_loss = log_loss(y_test_won, raw_probs_test)
-    
+
+    metrics = {
+        'best_neg_log_loss': round(float(grid_search.best_score_), 4),
+        'test_log_loss_raw': round(float(raw_loss), 4)
+    }
+
     print(f"\nOptimized Results (Raw, 2025 Holdout):")
     print(f"  -> Best Win Log-Loss (Raw): {raw_loss:.4f}")
 
     # 5. Save Optimized Model
     os.makedirs("models", exist_ok=True)
-    joblib.dump(best_model, "models/xgboost_optimized.joblib")
-    print("Optimized model saved to models/xgboost_optimized.joblib")
+    model_path = "models/xgboost_optimized.joblib"
+    joblib.dump(best_model, model_path)
+    print(f"Optimized model saved to {model_path}")
+
+    # 6. Log to Experiment Registry
+    logger.log_run(
+        label="XGBoost Hyperparameter Optimization",
+        model_type="XGBClassifier_GridSearch",
+        features=X_train.columns.tolist(),
+        parameters=best_params,
+        metrics=metrics,
+        artifacts=[model_path]
+    )
 
 if __name__ == "__main__":
     optimize_xgboost()

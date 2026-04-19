@@ -28,6 +28,12 @@ class LineupAnalyzer:
     def analyze_lineup(self, game_pk, team_type): # Fetches the starting lineup for a game and calculates weighted metrics.
     def run_daily_analysis(self): # Iterates through all today's games and prints the lineup strength.
 
+# tools/experiment_logger.py
+class QuantLogger:
+    def __init__(self, db_path):
+    def _init_db(self):
+    def log_run(self, label, model_type, features, parameters, metrics, artifacts): # Logs a single experiment run.
+
 # tools/value_finder.py
 class ValueFinder:
     def __init__(self):
@@ -62,11 +68,13 @@ def train_stuff_plus(): # Trains a pitch-level model to calculate Stuff+ (normal
 def optimize_xgboost(): # Performs Grid Search to find the best hyperparameters for the MLB binary classifier.
 
 # ml/backtest_k_props.py
-def run_k_prop_backtest(): # Evaluates the strikeout model on 2025 data.
+def american_to_decimal(american): # Converts American odds to Decimal odds.
+def calculate_kelly(p, dec_odds, fraction): # Calculates Fractional Kelly Criterion bet size.
+def run_k_prop_backtest(label): # Evaluates the strikeout model on 2025 data.
 
 # ml/train_k_props.py
 def load_k_prop_data(db_path): # Loads data for strikeout props, stacking home and away pitchers.
-def train_k_props(): # Trains an XGBRegressor to predict SP strikeout counts.
+def train_k_props(label): # Trains an XGBRegressor to predict SP strikeout counts.
 
 # ml/backtest.py
 def run_2025_backtest(): # Simulates the 2025 season using the optimized XGBoost Binary Classifier
@@ -115,6 +123,9 @@ def run_migrations(): # Architects a safe, patch-based database migration system
 # scripts/patch_historical_stuff_plus.py
 def patch_missing_stuff_plus():
 
+# scripts/archive_daily_props.py
+def archive_today_props(): # Fetches upcoming player props from The Odds API and archives them.
+
 # scripts/ingest_historical.py
 def ingest_2025_baseline(): # Automated ingestion of full 2025 season stats to provide a stable baseline.
 
@@ -128,12 +139,19 @@ def get_rolling_feature_map(season):
 def generate_rolling_stats(season):
 
 # scripts/fetch_historical_k_lines.py
-def fetch_k_lines_for_date(date_str): # Fetches strikeout props from Action Network API.
+def fetch_events_for_date(date_str):
+def fetch_k_lines_for_event(event_id, date_str):
+def calculate_synthetic_line(sp_k_minus_bb, opp_lineup_k_pct): # Calculates a Vegas-style fair line based on rolling K metrics.
+def patch_synthetic_lines(manager, date): # Fallback method to calculate fair synthetic lines for backtesting.
 def update_k_lines():
 
 # scripts/fetch_historical_odds.py
 def fetch_sbr_odds_playwright(date_str):
 def update_historical_odds(date_limit):
+
+# scripts/patch_advanced_k_features.py
+def calculate_park_k_factor(team_id, team_history): # Calculates a 1-year rolling Park K-Factor (Fangraphs method).
+def run_patch():
 
 # scripts/generate_repo_map.py
 def format_function(node, indent): # Helper to format a function signature, return type, and brief docstring.
@@ -157,6 +175,8 @@ def patch_missing_stuff_plus_memory():
 def patch_missing_stuff_plus_fast():
 
 # scripts/ingest/environment.py
+def calculate_density_altitude(temp_c, pressure_hpa): # Calculates Density Altitude in feet.
+def patch_historical_weather(): # Fetches historical weather for all games in the DB using Open-Meteo.
 def fetch_weather(matchups): # Fetches weather data for today's matchups using stadium coordinates.
 
 # scripts/ingest/odds.py
@@ -170,6 +190,9 @@ def log_progress(date_str):
 def get_last_progress():
 def ingest_production_statcast(): # Production-scale ingestion: 7-day chunks, parallelized, memory-safe.
 
+# scripts/dev/debug_an.py
+def run():
+
 # scripts/dev/validate_lineup.py
 def get_iso_upto(player_id, date, season):
 def validate():
@@ -177,6 +200,18 @@ def validate():
 # scripts/dev/test_run.py
 def test_one_day():
 
+# scripts/dev/debug_covers.py
+def run():
+
+# scripts/dev/debug_bp.py
+def run():
+
+# scripts/dev/test_synthetic_lines.py
+def test():
+
 # scripts/dev/debug_sbr.py
 def debug_sbr_fetch(date_str):
+
+# scripts/dev/test_patch_advanced_features.py
+def test_run():
 ```

@@ -43,8 +43,8 @@ def train_stuff_plus():
     all_pitch_types = sorted(all_pitch_types)
     print(f"Detected {len(all_pitch_types)} pitch types.")
 
-    # 1. Training Pass (Incremental)
-    print("\n--- PASS 1: Training Model (Incremental) ---")
+    # 1. Training Pass (Global Shuffle)
+    print("\n--- PASS 1: Accumulating and Shuffling Data ---")
     params = {
         'max_depth': 5,
         'eta': 0.05,
@@ -54,7 +54,7 @@ def train_stuff_plus():
         'random_state': 42
     }
     
-    model = None
+    processed_data = []
     total_pitches = 0
     
     query = "SELECT * FROM raw_pitches WHERE whiff IS NOT NULL"
@@ -74,20 +74,32 @@ def train_stuff_plus():
             col = f"pitch_type_{pt}"
             if col not in X.columns: X[col] = 0
         X = X.reindex(sorted(X.columns), axis=1)
-        y = chunk['whiff']
         
-        dtrain = xgb.DMatrix(X, label=y)
-        # Incremental training: pass the previous booster to xgb_model
-        model = xgb.train(params, dtrain, xgb_model=model, num_boost_round=10)
+        # Attach target and store
+        X['whiff'] = chunk['whiff'].values
+        processed_data.append(X)
         
         total_pitches += len(chunk)
         if (i + 1) % 5 == 0:
-            print(f"  Processed {i+1} chunks ({total_pitches} pitches)...")
+            print(f"  Accumulated {i+1} chunks ({total_pitches} pitches)...")
         
-        del chunk, X, y, dtrain
+        del chunk, X
         gc.collect()
 
-    print(f"Model training complete. Total pitches: {total_pitches}")
+    print(f"Data accumulation complete. Shuffling {total_pitches} pitches...")
+    full_data = pd.concat(processed_data, ignore_index=True)
+    full_data = full_data.sample(frac=1, random_state=42).reset_index(drop=True)
+    
+    X_train = full_data.drop(columns=['whiff'])
+    y_train = full_data['whiff']
+    
+    print("Training Global Stuff+ Model (100 rounds)...")
+    dtrain = xgb.DMatrix(X_train, label=y_train)
+    model = xgb.train(params, dtrain, num_boost_round=100)
+    
+    print("Training complete. Cleaning up memory...")
+    del full_data, X_train, y_train, dtrain, processed_data
+    gc.collect()
 
     # 2. Global Normalization Stats
     print("\n--- PASS 2: Calculating Global Stats for Normalization ---")

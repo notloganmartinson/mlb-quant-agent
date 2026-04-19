@@ -10,6 +10,7 @@ import sys
 # Ensure project root is in path for imports
 sys.path.append(os.getcwd())
 from ml.preprocess import load_and_preprocess_data
+from tools.experiment_logger import logger
 
 def train_baseline_xgboost():
     """
@@ -31,15 +32,16 @@ def train_baseline_xgboost():
     )
 
     # 2. Initialize Model (Binary Classification)
-    model = xgb.XGBClassifier(
-        n_estimators=200,
-        max_depth=3,
-        learning_rate=0.01,
-        objective='binary:logistic',
-        subsample=0.8,
-        random_state=42,
-        eval_metric='logloss'
-    )
+    params = {
+        'n_estimators': 200,
+        'max_depth': 3,
+        'learning_rate': 0.01,
+        'objective': 'binary:logistic',
+        'subsample': 0.8,
+        'random_state': 42,
+        'eval_metric': 'logloss'
+    }
+    model = xgb.XGBClassifier(**params)
 
     # 3. Train Model on the base training split
     model.fit(X_base, y_base)
@@ -64,6 +66,14 @@ def train_baseline_xgboost():
     
     test_acc = accuracy_score(y_test_won, (test_probs_calibrated > 0.5).astype(int))
 
+    metrics = {
+        'log_loss_raw': round(float(test_loss_raw), 4),
+        'log_loss_calibrated': round(float(test_loss_calibrated), 4),
+        'brier_score_raw': round(float(test_brier_raw), 4),
+        'brier_score_calibrated': round(float(test_brier_calibrated), 4),
+        'accuracy': round(float(test_acc), 4)
+    }
+
     print("\nWin Probability Estimator Calibrated Results (Isotonic Regression):")
     print(f"  -> Test Log-Loss (Raw): {test_loss_raw:.4f}")
     print(f"  -> Test Log-Loss (Isotonic): {test_loss_calibrated:.4f}")
@@ -73,9 +83,21 @@ def train_baseline_xgboost():
 
     # 5. Save Model & Calibration
     os.makedirs("models", exist_ok=True)
-    joblib.dump(model, "models/xgboost_baseline.joblib")
-    joblib.dump(iso_reg, "models/calibration_model.joblib")
+    model_path = "models/xgboost_baseline.joblib"
+    calib_path = "models/calibration_model.joblib"
+    joblib.dump(model, model_path)
+    joblib.dump(iso_reg, calib_path)
     print(f"\nModel and Calibration saved to models/")
+
+    # 6. Log to Experiment Registry
+    logger.log_run(
+        label="Baseline XGBoost - Isotonic Calibration",
+        model_type="XGBClassifier",
+        features=X_train.columns.tolist(),
+        parameters=params,
+        metrics=metrics,
+        artifacts=[model_path, calib_path]
+    )
 
     return model
 

@@ -5,6 +5,7 @@ import sys
 import xgboost as xgb
 import joblib
 import numpy as np
+import json
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 import argparse
@@ -119,32 +120,52 @@ def train_k_props(label="Strikeout Baseline"):
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     
+    # 4. Calculate Historical Dispersion (phi) for Negative Binomial
+    # phi = Variance / Mean
+    train_mean = y_train.mean()
+    train_var = y_train.var()
+    phi = train_var / train_mean if train_mean > 0 else 1.0
+    
     metrics = {
         'mae': round(float(mae), 4),
-        'rmse': round(float(rmse), 4)
+        'rmse': round(float(rmse), 4),
+        'dispersion_phi': round(float(phi), 4)
     }
 
     print("\nStrikeout Model Evaluation (2025 Holdout):")
     print(f"  -> Mean Absolute Error (MAE): {mae:.4f}")
     print(f"  -> Root Mean Squared Error (RMSE): {rmse:.4f}")
+    print(f"  -> Training Dispersion (phi): {phi:.4f}")
     print(f"  -> Sample Predictions (Top 5):")
     for i in range(min(5, len(y_test))):
         print(f"     Actual: {y_test.iloc[i]} | Predicted: {y_pred[i]:.2f}")
 
-    # 4. Save Model
-    model_path = "models/xgboost_k_props.joblib"
+    # 5. Save Model and Configuration
     os.makedirs("models", exist_ok=True)
+    model_path = "models/xgboost_k_props.joblib"
+    config_path = "models/k_prop_config.json"
+    
     joblib.dump(model, model_path)
+    
+    config = {
+        'dispersion_phi': float(phi),
+        'features': features,
+        'timestamp': pd.Timestamp.now().isoformat()
+    }
+    with open(config_path, 'w') as f:
+        json.dump(config, f, indent=4)
+        
     print(f"\nModel saved to {model_path}")
+    print(f"Config (phi) saved to {config_path}")
 
-    # 5. Log to Experiment Registry
+    # 6. Log to Experiment Registry
     logger.log_run(
         label=label,
         model_type="XGBRegressor_K_Props",
         features=features,
         parameters=params,
         metrics=metrics,
-        artifacts=[model_path]
+        artifacts=[model_path, config_path]
     )
 
 if __name__ == "__main__":
