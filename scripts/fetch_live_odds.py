@@ -65,13 +65,16 @@ def fetch_odds_api():
                             "book_name": book_name,
                             "home_team_id": home_id,
                             "away_team_id": away_id,
-                            "home_ml": None,
-                            "away_ml": None,
+                            "closing_home_ml": None,
+                            "closing_away_ml": None,
+                            "opening_home_ml": None,
+                            "opening_away_ml": None,
                             "home_rl": None,
                             "away_rl": None,
                             "rl_price_home": None,
                             "rl_price_away": None,
-                            "total": None,
+                            "closing_total": None,
+                            "opening_total": None,
                             "total_over_price": None,
                             "total_under_price": None,
                             "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -83,8 +86,12 @@ def fetch_odds_api():
                             
                             if market['key'] == 'h2h':
                                 for o in outcomes:
-                                    if o['name'] == home_team_name: odds_data['home_ml'] = o['price']
-                                    elif o['name'] == away_team_name: odds_data['away_ml'] = o['price']
+                                    if o['name'] == home_team_name: 
+                                        odds_data['closing_home_ml'] = o['price']
+                                        odds_data['opening_home_ml'] = o['price']
+                                    elif o['name'] == away_team_name: 
+                                        odds_data['closing_away_ml'] = o['price']
+                                        odds_data['opening_away_ml'] = o['price']
                                     
                             elif market['key'] == 'spreads':
                                 for o in outcomes:
@@ -97,7 +104,8 @@ def fetch_odds_api():
                                         
                             elif market['key'] == 'totals':
                                 for o in outcomes:
-                                    odds_data['total'] = o.get('point') # Both over/under usually have same point
+                                    odds_data['closing_total'] = o.get('point') # Both over/under usually have same point
+                                    odds_data['opening_total'] = o.get('point')
                                     if o['name'].lower() == 'over': odds_data['total_over_price'] = o['price']
                                     elif o['name'].lower() == 'under': odds_data['total_under_price'] = o['price']
                         

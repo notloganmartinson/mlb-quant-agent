@@ -19,7 +19,9 @@ class MLBAgent:
 def prompt_agent(): # Entry point for the script.
 
 # ingest_orchestrator.py
-def run_daily_ingestion(season): # Orchestrates the daily data ingestion pipeline.
+def run_daily_stats_ingestion(season): # Task 1: Heavy Stats & Environment
+def run_odds_ingestion(): # Task 2: Odds & CLV Tracking
+def start_scheduler():
 
 # tools/lineup_analyzer.py
 class LineupAnalyzer:

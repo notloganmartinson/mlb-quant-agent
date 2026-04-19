@@ -330,24 +330,29 @@ class MLBDbManager:
         """Inserts or updates detailed odds for a specific sportsbook."""
         sql = """
             INSERT INTO sportsbook_odds (
-                game_id, book_name, home_team_id, away_team_id, home_ml, away_ml, home_rl, away_rl, 
-                rl_price_home, rl_price_away, total, total_over_price, 
+                game_id, book_name, home_team_id, away_team_id, closing_home_ml, closing_away_ml, 
+                opening_home_ml, opening_away_ml, home_rl, away_rl, 
+                rl_price_home, rl_price_away, closing_total, opening_total, total_over_price, 
                 total_under_price, last_updated
             ) VALUES (
-                :game_id, :book_name, :home_team_id, :away_team_id, :home_ml, :away_ml, :home_rl, :away_rl, 
-                :rl_price_home, :rl_price_away, :total, :total_over_price, 
+                :game_id, :book_name, :home_team_id, :away_team_id, :closing_home_ml, :closing_away_ml, 
+                :opening_home_ml, :opening_away_ml, :home_rl, :away_rl, 
+                :rl_price_home, :rl_price_away, :closing_total, :opening_total, :total_over_price, 
                 :total_under_price, :last_updated
             )
             ON CONFLICT(game_id, book_name) DO UPDATE SET
                 home_team_id = excluded.home_team_id,
                 away_team_id = excluded.away_team_id,
-                home_ml = excluded.home_ml,
-                away_ml = excluded.away_ml,
+                closing_home_ml = excluded.closing_home_ml,
+                closing_away_ml = excluded.closing_away_ml,
+                opening_home_ml = COALESCE(sportsbook_odds.opening_home_ml, excluded.opening_home_ml),
+                opening_away_ml = COALESCE(sportsbook_odds.opening_away_ml, excluded.opening_away_ml),
                 home_rl = excluded.home_rl,
                 away_rl = excluded.away_rl,
                 rl_price_home = excluded.rl_price_home,
                 rl_price_away = excluded.rl_price_away,
-                total = excluded.total,
+                closing_total = excluded.closing_total,
+                opening_total = COALESCE(sportsbook_odds.opening_total, excluded.opening_total),
                 total_over_price = excluded.total_over_price,
                 total_under_price = excluded.total_under_price,
                 last_updated = excluded.last_updated
