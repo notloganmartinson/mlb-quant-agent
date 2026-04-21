@@ -1,18 +1,20 @@
 import os
+import sys
 import sqlite3
 import pandas as pd
 import json
 import time
 from datetime import datetime
+
+# Add project root to path
+sys.path.append(os.getcwd())
+
 from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
 from core.db_manager import MLBDbManager
 
 def fetch_sbr_odds_playwright(date_str):
-    url = f"https://www.sportsbookreview.com/betting-odds/mlb-baseball/?date={date_str}"
-    print(f"  [SBR] Fetching {date_str} via Playwright JSON extraction...")
-    
-    extracted_games = []
+    extracted_games = {} # Keyed by home_team
     
     with sync_playwright() as p:
         user_data_dir = os.path.join(os.getcwd(), ".playwright_session")
@@ -20,51 +22,64 @@ def fetch_sbr_odds_playwright(date_str):
         page = context.new_page()
         Stealth().apply_stealth_sync(page)
         
+        # 1. Fetch Moneyline
+        ml_url = f"https://www.sportsbookreview.com/betting-odds/mlb-baseball/?date={date_str}"
+        print(f"  [SBR] Fetching ML for {date_str}...")
         try:
-            page.goto(url, wait_until="networkidle", timeout=60000)
-            
-            # Extract __NEXT_DATA__ using JavaScript in the browser
+            page.goto(ml_url, wait_until="networkidle", timeout=60000)
             raw_json = page.evaluate("document.getElementById('__NEXT_DATA__').textContent")
-            full_data = json.loads(raw_json)
-            
-            page_props = full_data.get('props', {}).get('pageProps', {})
-            odds_tables = page_props.get('oddsTables', [])
-            
+            data = json.loads(raw_json)
             game_rows = []
-            for table in odds_tables:
+            for table in data.get('props', {}).get('pageProps', {}).get('oddsTables', []):
                 if table.get('league') == 'MLB':
                     game_rows.extend(table.get('oddsTableModel', {}).get('gameRows', []))
             
             for row in game_rows:
-                game_view = row.get('gameView', {})
-                home_team = game_view.get('homeTeam', {}).get('fullName')
-                away_team = game_view.get('awayTeam', {}).get('fullName')
+                home_team = row.get('gameView', {}).get('homeTeam', {}).get('fullName')
+                away_team = row.get('gameView', {}).get('awayTeam', {}).get('fullName')
+                if not home_team: continue
                 
-                home_ml, away_ml, total = None, None, None
                 for view in row.get('oddsViews', []):
                     if not view: continue
                     line = view.get('currentLine', {})
-                    if not line: continue
-                    
-                    # SBR uses different keys depending on the endpoint/page version
                     home_ml = line.get('homeMoneyLine') or line.get('homeOdds')
-                    if home_ml is not None:
-                        away_ml = line.get('awayMoneyLine') or line.get('awayOdds')
-                        total = line.get('total')
+                    away_ml = line.get('awayMoneyLine') or line.get('awayOdds')
+                    if home_ml:
+                        extracted_games[home_team] = {
+                            'home_team': home_team, 'away_team': away_team,
+                            'home_ml': home_ml, 'away_ml': away_ml, 'total': None
+                        }
                         break
-                
-                if home_team and away_team and home_ml is not None:
-                    extracted_games.append({
-                        'home_team': home_team, 'away_team': away_team,
-                        'home_ml': home_ml, 'away_ml': away_ml, 'total': total
-                    })
-            
         except Exception as e:
-            print(f"    [!] Playwright Error: {e}")
-        finally:
-            context.close()
+            print(f"    [!] ML Error: {e}")
+
+        # 2. Fetch Totals
+        total_url = f"https://www.sportsbookreview.com/betting-odds/mlb-baseball/totals/?date={date_str}"
+        print(f"  [SBR] Fetching Totals for {date_str}...")
+        try:
+            page.goto(total_url, wait_until="networkidle", timeout=60000)
+            raw_json = page.evaluate("document.getElementById('__NEXT_DATA__').textContent")
+            data = json.loads(raw_json)
+            game_rows = []
+            for table in data.get('props', {}).get('pageProps', {}).get('oddsTables', []):
+                if table.get('league') == 'MLB':
+                    game_rows.extend(table.get('oddsTableModel', {}).get('gameRows', []))
             
-    return extracted_games
+            for row in game_rows:
+                home_team = row.get('gameView', {}).get('homeTeam', {}).get('fullName')
+                if home_team in extracted_games:
+                    for view in row.get('oddsViews', []):
+                        if not view: continue
+                        total = view.get('currentLine', {}).get('total')
+                        if total:
+                            extracted_games[home_team]['total'] = total
+                            break
+        except Exception as e:
+            print(f"    [!] Total Error: {e}")
+            
+        context.close()
+            
+    return list(extracted_games.values())
 
 def update_historical_odds(date_limit=None):
     manager = MLBDbManager()

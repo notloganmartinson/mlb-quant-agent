@@ -1,7 +1,8 @@
 import ast
 import os
 
-IGNORE_DIRS = {'.git', '__pycache__', 'venv', '.venv', 'data', 'models', '.playwright_session'}
+# Added 'dev' and 'archive' to ignore list to prevent bloat
+IGNORE_DIRS = {'.git', '__pycache__', 'venv', '.venv', 'data', 'models', '.playwright_session', 'dev', 'archive'}
 
 def format_function(node, indent=0):
     """Helper to format a function signature, return type, and brief docstring."""
@@ -69,6 +70,14 @@ if __name__ == "__main__":
     project_root = os.path.dirname(script_dir)
     ast_map = generate_map(root_dir=project_root)
     
+    # --- THE SQL BYPASS ---
+    # Read the raw SQL schema directly
+    schema_path = os.path.join(project_root, "core", "schema.sql")
+    schema_content = ""
+    if os.path.exists(schema_path):
+        with open(schema_path, "r", encoding="utf-8") as f:
+            schema_content = f.read()
+    
     # Ultra-lean, token-optimized system anchor
     preamble = """# AST REPO MAP
 SYSTEM INSTRUCTIONS:
@@ -84,6 +93,16 @@ SYSTEM INSTRUCTIONS:
     output_path = os.path.join(project_root, "GEMINI.md")
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(preamble)
+        
+        # Inject the Database Schema into the markdown first
+        if schema_content:
+            f.write("## DATABASE SCHEMA (`core/schema.sql`)\n")
+            f.write("```sql\n")
+            f.write(schema_content)
+            f.write("\n```\n\n")
+        
+        # Inject the AST Map
+        f.write("## PYTHON ARCHITECTURE\n")
         f.write("```python\n")
         f.write(ast_map)
         f.write("\n```\n")

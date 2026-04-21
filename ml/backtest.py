@@ -19,34 +19,41 @@ def run_2025_backtest():
     
     # 1. Load Data & Model
     X_train, X_test, y_train, y_test, context_test = load_and_preprocess_data()
-    model_path = "models/xgboost_optimized.joblib"
+    model_path = "models/xgboost_baseline.joblib"
     calib_path = "models/calibration_model.joblib"
-    if not os.path.exists(model_path) or not os.path.exists(calib_path):
-        print(f"Error: Models not found at {model_path} or {calib_path}. Run ml/optimize.py then train calibration first.")
+    calib_away_path = "models/calibration_model_away.joblib"
+    
+    if not all(os.path.exists(p) for p in [model_path, calib_path, calib_away_path]):
+        print(f"Error: Models not found. Run ml/train_xgboost.py first.")
         return
+        
     model = joblib.load(model_path)
     iso_reg = joblib.load(calib_path)
+    iso_reg_away = joblib.load(calib_away_path)
 
     # 2. Get Predicted Probabilities (p)
     raw_probs = model.predict_proba(X_test)[:, 1]
     
-    # Isotonic Calibration (using .predict instead of .predict_proba for IsotonicRegression)
-    probs = iso_reg.predict(raw_probs)
+    # Dual Isotonic Calibration
+    home_probs = iso_reg.predict(raw_probs)
+    away_probs = iso_reg_away.predict(1.0 - raw_probs)
     
     # 3. Create results dataframe
     y_test_won = (y_test.iloc[:, 0] > y_test.iloc[:, 1]).astype(int)
     results_df = pd.DataFrame({
         'game_id': context_test['game_id'],
-        'home_p': probs,
+        'home_p': home_probs,
+        'away_p': away_probs,
         'actual_win': y_test_won, # 1 if home won, 0 if away won
         'home_ml': context_test['closing_home_moneyline'],
+        'away_ml': context_test['closing_away_moneyline'],
         'home_lineup_pa': X_test['home_lineup_pa']
     })
 
     # Drop games with missing market data
     initial_count = len(results_df)
-    results_df = results_df.dropna(subset=['home_ml'])
-    results_df = results_df[results_df['home_ml'] != 0]
+    results_df = results_df.dropna(subset=['home_ml', 'away_ml'])
+    results_df = results_df[(results_df['home_ml'] != 0) & (results_df['away_ml'] != 0)]
     dropped = initial_count - len(results_df)
     if dropped > 0:
         print(f"  [!] Flag: Dropped {dropped} games due to missing market data.")
@@ -57,28 +64,41 @@ def run_2025_backtest():
         else: return (100 / abs(ml)) + 1
     
     results_df['home_dec'] = results_df['home_ml'].apply(am_to_dec)
+    results_df['away_dec'] = results_df['away_ml'].apply(am_to_dec)
 
     # 5. Kelly Criterion Logic with Variance Adjustment (LCF)
     fractional_kelly = 0.25
     
     results_df['home_kelly'] = ((results_df['home_dec'] - 1) * results_df['home_p'] - (1 - results_df['home_p'])) / (results_df['home_dec'] - 1)
     results_df['home_edge'] = (results_df['home_p'] * results_df['home_dec']) - 1
+
+    results_df['away_kelly'] = ((results_df['away_dec'] - 1) * results_df['away_p'] - (1 - results_df['away_p'])) / (results_df['away_dec'] - 1)
+    results_df['away_edge'] = (results_df['away_p'] * results_df['away_dec']) - 1
     
     # Lineup Confidence Factor (LCF): Scale stake based on cumulative PA (Stabilization at 250 PA)
     results_df['lcf'] = (results_df['home_lineup_pa'] / 250.0).clip(upper=1.0)
     
-    # Decide which side to bet (Home Only with Dynamic EV Thresholding)
+    # Decide which side to bet (Both Sides with Dynamic EV Thresholding)
     def determine_bet(row):
-        vegas_implied = 1 / row['home_dec']
-        if vegas_implied >= 0.40:
-            ev_threshold = 0.05 # 5% for Slight Underdogs and Favorites
-        else:
-            ev_threshold = 0.08 # 8% for Heavy Underdogs (protecting from noise)
+        home_implied = 1 / row['home_dec']
+        away_implied = 1 / row['away_dec']
+        
+        home_ev_threshold = 0.05 if home_implied >= 0.40 else 0.08
+        away_ev_threshold = 0.05 if away_implied >= 0.40 else 0.08
+        
+        home_valid = row['home_edge'] > home_ev_threshold
+        away_valid = row['away_edge'] > away_ev_threshold
+        
+        if home_valid and away_valid:
+            if row['home_edge'] > row['away_edge']:
+                return 'HOME', max(0, row['home_kelly']) * fractional_kelly * row['lcf']
+            else:
+                return 'AWAY', max(0, row['away_kelly']) * fractional_kelly * row['lcf']
+        elif home_valid:
+            return 'HOME', max(0, row['home_kelly']) * fractional_kelly * row['lcf']
+        elif away_valid:
+            return 'AWAY', max(0, row['away_kelly']) * fractional_kelly * row['lcf']
             
-        if row['home_edge'] > ev_threshold:
-            # Apply LCF to the fractional stake
-            final_stake = max(0, row['home_kelly']) * fractional_kelly * row['lcf']
-            return 'HOME', final_stake
         return 'NONE', 0.0
 
     bets = results_df.apply(determine_bet, axis=1, result_type='expand')
@@ -88,7 +108,11 @@ def run_2025_backtest():
     results_df['profit'] = np.where(
         results_df['side_bet'] == 'HOME',
         np.where(results_df['actual_win'] == 1, results_df['stake_pct'] * (results_df['home_dec'] - 1), -results_df['stake_pct']),
-        0.0
+        np.where(
+            results_df['side_bet'] == 'AWAY',
+            np.where(results_df['actual_win'] == 0, results_df['stake_pct'] * (results_df['away_dec'] - 1), -results_df['stake_pct']),
+            0.0
+        )
     )
     results_df['cumulative_pnl'] = results_df['profit'].cumsum()
 

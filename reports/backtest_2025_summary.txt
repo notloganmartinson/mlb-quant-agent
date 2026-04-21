@@ -1,8 +1,8 @@
 
 2025 Backtest Summary (Binary Classifier + Isotonic Calibration):
   -> Total Games Simulated: 2601
-  -> Total Bets Placed: 364
-  -> Total Bets Won: 163
-  -> Win Rate: 44.78%
-  -> Total Profit (Units): 0.21
-  -> Simulated ROI: 2.51%
+  -> Total Bets Placed: 1521
+  -> Total Bets Won: 607
+  -> Win Rate: 39.91%
+  -> Total Profit (Units): -0.26
+  -> Simulated ROI: -0.89%

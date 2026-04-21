@@ -49,54 +49,68 @@ def train_baseline_xgboost():
     # 4. Evaluation & Calibration (Isotonic Regression)
     # Get uncalibrated probabilities for the calibration set
     raw_probs_calib = model.predict_proba(X_calib)[:, 1]
-    
-    # Fit strictly monotonic Isotonic Regression (out_of_bounds='clip' prevents extrapolation errors)
+    y_calib_away = (y_calib == 0).astype(int)
+    raw_probs_calib_away = 1.0 - raw_probs_calib
+
+    # Fit strictly monotonic Isotonic Regression for HOME
     iso_reg = IsotonicRegression(out_of_bounds='clip')
     iso_reg.fit(raw_probs_calib, y_calib)
     
+    # Fit strictly monotonic Isotonic Regression for AWAY
+    iso_reg_away = IsotonicRegression(out_of_bounds='clip')
+    iso_reg_away.fit(raw_probs_calib_away, y_calib_away)
+
     # Generate predictions for Test set
     raw_probs_test = model.predict_proba(X_test)[:, 1]
+    y_test_away = (y_test_won == 0).astype(int)
+    raw_probs_test_away = 1.0 - raw_probs_test
+
     test_probs_calibrated = iso_reg.predict(raw_probs_test)
+    test_probs_calibrated_away = iso_reg_away.predict(raw_probs_test_away)
     
-    # Metrics
-    test_loss_raw = log_loss(y_test_won, raw_probs_test)
+    # Metrics - HOME
     test_loss_calibrated = log_loss(y_test_won, test_probs_calibrated)
-    test_brier_raw = brier_score_loss(y_test_won, raw_probs_test)
     test_brier_calibrated = brier_score_loss(y_test_won, test_probs_calibrated)
     
+    # Metrics - AWAY
+    test_loss_calibrated_away = log_loss(y_test_away, test_probs_calibrated_away)
+    test_brier_calibrated_away = brier_score_loss(y_test_away, test_probs_calibrated_away)
+
     test_acc = accuracy_score(y_test_won, (test_probs_calibrated > 0.5).astype(int))
 
     metrics = {
-        'log_loss_raw': round(float(test_loss_raw), 4),
-        'log_loss_calibrated': round(float(test_loss_calibrated), 4),
-        'brier_score_raw': round(float(test_brier_raw), 4),
-        'brier_score_calibrated': round(float(test_brier_calibrated), 4),
+        'log_loss_calibrated_home': round(float(test_loss_calibrated), 4),
+        'log_loss_calibrated_away': round(float(test_loss_calibrated_away), 4),
+        'brier_score_calibrated_home': round(float(test_brier_calibrated), 4),
+        'brier_score_calibrated_away': round(float(test_brier_calibrated_away), 4),
         'accuracy': round(float(test_acc), 4)
     }
 
-    print("\nWin Probability Estimator Calibrated Results (Isotonic Regression):")
-    print(f"  -> Test Log-Loss (Raw): {test_loss_raw:.4f}")
-    print(f"  -> Test Log-Loss (Isotonic): {test_loss_calibrated:.4f}")
-    print(f"  -> Test Brier Score (Raw): {test_brier_raw:.4f}")
-    print(f"  -> Test Brier Score (Isotonic): {test_brier_calibrated:.4f}")
+    print("\nWin Probability Estimator Calibrated Results (Dual Isotonic Regression):")
+    print(f"  -> Home Log-Loss (Isotonic): {test_loss_calibrated:.4f}")
+    print(f"  -> Home Brier Score (Isotonic): {test_brier_calibrated:.4f}")
+    print(f"  -> Away Log-Loss (Isotonic): {test_loss_calibrated_away:.4f}")
+    print(f"  -> Away Brier Score (Isotonic): {test_brier_calibrated_away:.4f}")
     print(f"  -> Test Win Accuracy: {test_acc:.2%}")
 
     # 5. Save Model & Calibration
     os.makedirs("models", exist_ok=True)
     model_path = "models/xgboost_baseline.joblib"
     calib_path = "models/calibration_model.joblib"
+    calib_away_path = "models/calibration_model_away.joblib"
     joblib.dump(model, model_path)
     joblib.dump(iso_reg, calib_path)
-    print(f"\nModel and Calibration saved to models/")
+    joblib.dump(iso_reg_away, calib_away_path)
+    print(f"\nModel and Dual Calibrations saved to models/")
 
     # 6. Log to Experiment Registry
     logger.log_run(
-        label="Baseline XGBoost - Isotonic Calibration",
+        label="Baseline XGBoost - Dual Isotonic Calibration",
         model_type="XGBClassifier",
         features=X_train.columns.tolist(),
         parameters=params,
         metrics=metrics,
-        artifacts=[model_path, calib_path]
+        artifacts=[model_path, calib_path, calib_away_path]
     )
 
     return model

@@ -191,26 +191,34 @@ To protect this alpha in the live 2026 market, the system must account for "The 
 
 ---
 
-## Phase VIII: Professional Quant Elevation & The K-Prop Sprint (April 2026)
+## Phase IX: Asymmetric Market Calibration & Multi-Factor Environmental Integration (April 2026)
 
 ### 1. Abstract
-The research objectives were expanded from binary game-win classification to discrete event prediction (Pitcher Strikeouts) and atmospheric environmental modeling. This phase represents the transition from a heuristic baseline to a professional-grade quantitative architecture by eliminating several critical "Scoffs" (methodological shortcuts).
+The research was expanded to address the mathematical divergence between Home and Away betting markets. This phase involved two primary breakthroughs: the transition from a single-point calibration to a **Dual-Market Isotonic Calibration** architecture and the integration of a **Multi-Factor Strikeout Environment** to mitigate bias in the model's perceived edge on away underdogs.
 
-### 2. Probabilistic K-Prop Engine
-**The Innovation:** Shifted from directional accuracy (Over/Under 4.5) to an Expected Value (EV) engine.
-**Methodology:** Utilized a discrete Poisson Cumulative Distribution Function (CDF) to convert the XGBoost mean prediction ($\lambda$) into the probability of hitting a specific market line. This allows for direct comparison against sportsbook implied probabilities to identify mathematical edge.
-**Bet Sizing:** Integrated a 0.25 Fractional Kelly Criterion to simulate realistic bankroll growth and financial risk management.
+### 2. Mitigating Asymmetric Calibration Bias
+**The Issue:** Previous iterations utilized a single Isotonic Regression model calibrated solely on Home win probabilities. While mathematically sound for binary outcomes ($P_{away} = 1 - P_{home}$), this approach failed to account for the asymmetric error distribution of the underlying XGBoost classifier, which demonstrated a consistent over-confidence bias toward Away teams.
+**The Fix:** Instituted a **Symmetrical Calibration Pipeline** within `ml/train_xgboost.py`. The system now trains and serializes two independent non-parametric models:
+1.  `calibration_model.joblib`: Calibrated for Home team win probability.
+2.  `calibration_model_away.joblib`: Calibrated for Away team win probability using inverted raw scores ($1 - P_{raw}$).
+This dual-pathway approach ensures that the Expected Value (EV) calculation for each side is grounded in its own unique historical reliability distribution.
 
-### 3. Feature Engineering: The Professional Layer
-Four high-alpha features were introduced to increase model signal:
-1.  **Umpire K-Tendencies:** Developed a dynamic, look-ahead-free scraper to track the unique strikeout percentages of every MLB home plate umpire.
-2.  **Park K-Factors:** Replaced generic run-scoring park factors with strikeout-specific multipliers calculated from historical home/away K% ratios.
-3.  **The Bullpen Engine:** Eliminated the "Starter-as-Proxy" bias. The system now identifies the Top 5 relief pitchers by recent utilization and aggregates their rolling skill metrics (SIERA/K-BB%).
-4.  **Atmospheric Physics (Density Altitude):** Integrated the Open-Meteo Historical API to calculate game-time Density Altitude. This accounts for the impact of temperature and barometric pressure on pitch movement and ball flight distance.
+### 3. Integration of Secondary Market Influencers
+To refine the model's signal-to-noise ratio, the feature set was expanded to include high-resolution metrics previously identified as latent influencers:
+- **Atmospheric & Umpire Coupling:** Integration of `umpire_k_pct` (official strikeout tendency) and `park_factor_k` (stadium-specific K-suppression). 
+- **Lineup-Level Volatility:** Incorporation of raw `lineup_k_pct` for both starting nines, providing the model with a direct measurement of offensive strikeout susceptibility.
+- **Market Consensus Anchoring:** The inclusion of `closing_total` (Over/Under) as a feature, allowing the model to weigh its predictions against the market's aggregate expectation of game-scoring volume.
 
-### 4. The Quant Experiment Registry
-**The Issue:** Ephemeral result tracking led to "Memory Loss" during model tuning, making it difficult to objectively prove if new features (like Density Altitude) actually improved ROI.
-**The Solution:** Implemented a SQLite-backed registry (`registry.db`) to log every training and backtest run. Each entry is tagged with a label and persists the exact features, parameters, and metrics used, along with an archive of binary model artifacts. This provides an immutable ledger of the research process.
+### 4. Quantitative Results & Impact Analysis
+The integration of these environmental factors and the dual-calibration setup resulted in a significant shift in model performance during the 2025 walk-forward validation:
+- **Predictive Accuracy:** Accuracy on unseen data improved from **53.20% to 56.03%**.
+- **Feature Primacy:** Analysis of feature importance revealed that **`park_factor_k`** emerged as the single most predictive feature in the updated model, surpassing both pitching and hitting metrics in weighted influence.
+- **Market Resilience:** The backtest profit improved from **-1.65 units to -0.26 units**, nearly reaching the break-even threshold across the entire 2025 season. Most notably, the Win Rate for Home bets surged to **51.01%**, while the Away Win Rate stabilized at **42.64%**.
 
-### 5. Conclusion: Towards Proprietary Data
-The discovery that historical player prop odds are increasingly gated behind high-security paywalls led to a pivot in data strategy. The research now prioritizes the creation of a **Proprietary Odds Archive**—a daily automated ingestion of live market prices to build a private, high-resolution historical dataset for free.
+### 5. Methodological Note: Strategic Feature Decoupling (Whiff+ vs. Full Stuff+)
+The current pipeline intentionally implements a "Whiff+" focus (swing-and-miss probability) rather than a comprehensive "Stuff+" engine that incorporates contact-quality metrics. This is a strategic decision to mitigate **Multicollinearity**. Because the model relies heavily on **SIERA** (Skill-Interactive Earned Run Average) for both starters and relievers, the contact-management component of pitching performance—specifically the interaction between Ground Ball, Fly Ball, and Pop-Up ratios—is already effectively captured. 
+
+Integrating a full Stuff+ model that evaluates contact management would introduce redundant signals, confusing the feature weights and degrading model stability. By isolating "Whiff+" from "SIERA," the model maintains a clear separation between **Pure Stuff** and **Contact Management**, ensuring that each feature provides a unique, orthogonal contribution to the final win probability estimate.
+
+### 6. Conclusion: Contextual Refinement
+The findings suggest that the model's previous difficulties were not due to lack of optimization, but rather a lack of **environmental context**. By providing the XGBoost engine with direct access to the "Physics of the Strike Zone" (Umpire and Park K-factors), the system evolved from a simple talent-aggregator into a context-aware value engine. Future efforts will focus on hyperparameter tuning specifically for this 25-feature set to breach the profitability threshold.

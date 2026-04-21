@@ -7,6 +7,205 @@ SYSTEM INSTRUCTIONS:
 
 ---
 
+## DATABASE SCHEMA (`core/schema.sql`)
+```sql
+-- MLB Betting Database Schema
+-- Last Updated: 2026-04-12
+
+-- Drop existing tables to ensure schema migrations are applied correctly
+DROP TABLE IF EXISTS starting_pitchers;
+DROP TABLE IF EXISTS bullpens;
+DROP TABLE IF EXISTS hitting_lineups;
+DROP TABLE IF EXISTS betting_markets;
+DROP TABLE IF EXISTS historical_training_data;
+DROP TABLE IF EXISTS park_factors_and_weather;
+DROP TABLE IF EXISTS sportsbook_odds;
+DROP TABLE IF EXISTS team_mappings;
+DROP TABLE IF EXISTS raw_pitches;
+
+-- Table 1: players (Season-Aware)
+CREATE TABLE IF NOT EXISTS players (
+    player_id INTEGER,
+    season INTEGER,
+    name TEXT NOT NULL,
+    date_updated TEXT,
+    stuff_plus REAL,
+    location_plus REAL,
+    pitching_plus REAL,
+    xfip REAL,
+    siera REAL,
+    era REAL,
+    k_minus_bb_percent REAL,
+    iso REAL,
+    k_pct REAL,
+    PRIMARY KEY (player_id, season)
+);
+
+-- Table 2: bullpens (Season-Aware)
+CREATE TABLE IF NOT EXISTS bullpens (
+    team_id INTEGER,
+    season INTEGER,
+    team_name TEXT NOT NULL,
+    date_updated TEXT,
+    bullpen_xfip REAL,
+    bullpen_siera REAL,
+    top_relievers_rest_days INTEGER,
+    total_pitches_last_3_days INTEGER,
+    PRIMARY KEY (team_id, season)
+);
+
+-- Table 3: hitting_lineups (Season-Aware)
+CREATE TABLE IF NOT EXISTS hitting_lineups (
+    team_id INTEGER,
+    season INTEGER,
+    team_name TEXT NOT NULL,
+    date_updated TEXT,
+    iso_vs_rhp REAL,
+    iso_vs_lhp REAL,
+    woba REAL,
+    iso REAL,
+    k_percent REAL,
+    PRIMARY KEY (team_id, season)
+);
+
+-- Table 4: park_factors_and_weather
+CREATE TABLE IF NOT EXISTS park_factors_and_weather (
+    game_id INTEGER PRIMARY KEY,
+    home_team TEXT NOT NULL,
+    stadium_name TEXT,
+    park_factor_runs REAL,
+    park_factor_hr REAL,
+    temperature REAL,
+    wind_speed_mph REAL,
+    wind_direction TEXT
+);
+
+-- Table 5: betting_markets (Live Predictions - Mirrored with Training Data)
+CREATE TABLE IF NOT EXISTS betting_markets (
+    game_id INTEGER PRIMARY KEY,
+    home_team_id INTEGER,
+    away_team_id INTEGER,
+    home_team TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    home_pitcher TEXT,
+    away_pitcher TEXT,
+    -- Pitching Features
+    home_sp_siera REAL,
+    away_sp_siera REAL,
+    home_sp_k_minus_bb REAL,
+    away_sp_k_minus_bb REAL,
+    home_bullpen_siera REAL,
+    away_bullpen_siera REAL,
+    -- Hitting Features
+    home_lineup_iso_vs_pitcher_hand REAL,
+    away_lineup_iso_vs_pitcher_hand REAL,
+    home_lineup_woba_vs_pitcher_hand REAL,
+    away_lineup_woba_vs_pitcher_hand REAL,
+    -- Environment & Park
+    park_factor_runs REAL,
+    temperature REAL,
+    wind_speed REAL,
+    wind_direction TEXT,
+    -- Market Data
+    full_game_home_moneyline INTEGER,
+    full_game_away_moneyline INTEGER,
+    full_game_total REAL,
+    implied_prob_home REAL
+);
+
+-- Table 8: historical_training_data (1:1 Mirror of betting_markets + Target)
+CREATE TABLE IF NOT EXISTS historical_training_data (
+    game_id INTEGER PRIMARY KEY,
+    game_date TEXT,
+    home_team_id INTEGER,
+    away_team_id INTEGER,
+    -- THE TARGET
+    home_team_won INTEGER,
+    home_team_runs INTEGER,
+    away_team_runs INTEGER,
+    -- Pitching Features
+    home_sp_siera REAL,
+    away_sp_siera REAL,
+    home_sp_k_minus_bb REAL,
+    away_sp_k_minus_bb REAL,
+    home_bullpen_siera REAL,
+    away_bullpen_siera REAL,
+    -- Hitting Features
+    home_lineup_iso_vs_pitcher_hand REAL,
+    away_lineup_iso_vs_pitcher_hand REAL,
+    home_lineup_woba_vs_pitcher_hand REAL,
+    away_lineup_woba_vs_pitcher_hand REAL,
+    -- Environment & Park
+    park_factor_runs REAL,
+    temperature REAL,
+    wind_speed REAL,
+    wind_direction TEXT,
+    -- Market/Baseline
+    closing_home_moneyline INTEGER,
+    closing_away_moneyline INTEGER,
+    closing_total REAL
+);
+
+-- Table 6: sportsbook_odds (Detailed multi-book data)
+CREATE TABLE IF NOT EXISTS sportsbook_odds (
+    game_id INTEGER,
+    book_name TEXT NOT NULL,
+    home_team_id INTEGER,
+    away_team_id INTEGER,
+    closing_home_ml INTEGER,
+    closing_away_ml INTEGER,
+    opening_home_ml INTEGER,
+    opening_away_ml INTEGER,
+    home_rl REAL,
+    away_rl REAL,
+    rl_price_home INTEGER,
+    rl_price_away INTEGER,
+    closing_total REAL,
+    opening_total REAL,
+    total_over_price INTEGER,
+    total_under_price INTEGER,
+    last_updated TEXT,
+    PRIMARY KEY (game_id, book_name)
+);
+
+-- Table 7: team_mappings (The "Translator" Table)
+CREATE TABLE IF NOT EXISTS team_mappings (
+    mlb_id INTEGER PRIMARY KEY,
+    team_name_short TEXT,
+    team_full_name TEXT,
+    odds_api_name TEXT,
+    espn_name TEXT,
+    fangraphs_abbr TEXT
+);
+
+-- Table 9: raw_pitches (Statcast Training Data)
+CREATE TABLE IF NOT EXISTS raw_pitches (
+    pitch_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pitcher_id INTEGER,
+    game_date TEXT,
+    pitch_type TEXT,
+    release_speed REAL,
+    pfx_x REAL,
+    pfx_z REAL,
+    release_spin_rate REAL,
+    release_extension REAL,
+    vx0 REAL,
+    vy0 REAL,
+    vz0 REAL,
+    ax REAL,
+    ay REAL,
+    az REAL,
+    sz_top REAL,
+    sz_bot REAL,
+    plate_x REAL,
+    plate_z REAL,
+    description TEXT,
+    whiff INTEGER
+);
+
+```
+
+## PYTHON ARCHITECTURE
 ```python
 
 # agent.py
@@ -164,18 +363,6 @@ def generate_map(root_dir): # Walks the directory and builds the repo map.
 def parse_wind(wind_str): # Parses wind string like '5 mph, Out To CF' into (speed, direction).
 def patch_weather():
 
-# scripts/archive/patch_2022_offline.py
-def patch_missing_stuff_plus_sql_only():
-
-# scripts/archive/patch_2022_stuff_plus.py
-def patch_missing_stuff_plus():
-
-# scripts/archive/patch_2022_memory.py
-def patch_missing_stuff_plus_memory():
-
-# scripts/archive/patch_2022_fast.py
-def patch_missing_stuff_plus_fast():
-
 # scripts/ingest/environment.py
 def calculate_density_altitude(temp_c, pressure_hpa): # Calculates Density Altitude in feet.
 def patch_historical_weather(): # Fetches historical weather for all games in the DB using Open-Meteo.
@@ -191,29 +378,4 @@ def ingest_mlb_official_stats(season): # Fetches raw stats and computes metrics 
 def log_progress(date_str):
 def get_last_progress():
 def ingest_production_statcast(): # Production-scale ingestion: 7-day chunks, parallelized, memory-safe.
-
-# scripts/dev/debug_an.py
-def run():
-
-# scripts/dev/validate_lineup.py
-def get_iso_upto(player_id, date, season):
-def validate():
-
-# scripts/dev/test_run.py
-def test_one_day():
-
-# scripts/dev/debug_covers.py
-def run():
-
-# scripts/dev/debug_bp.py
-def run():
-
-# scripts/dev/test_synthetic_lines.py
-def test():
-
-# scripts/dev/debug_sbr.py
-def debug_sbr_fetch(date_str):
-
-# scripts/dev/test_patch_advanced_features.py
-def test_run():
 ```
