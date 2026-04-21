@@ -122,15 +122,42 @@ def run_2025_backtest():
     total_bets = len(results_df[results_df['side_bet'] != 'NONE'])
     bets_won = len(results_df[(results_df['side_bet'] != 'NONE') & (results_df['profit'] > 0)])
     win_rate = (bets_won / total_bets) if total_bets > 0 else 0
+
+    def calc_side_metrics(side):
+        side_df = results_df[results_df['side_bet'] == side]
+        count = len(side_df)
+        if count == 0: return 0, 0, 0, 0, 0
+        wins = len(side_df[side_df['profit'] > 0])
+        wr = wins / count
+        prof = side_df['profit'].sum()
+        side_roi = (prof / side_df['stake_pct'].sum()) if side_df['stake_pct'].sum() > 0 else 0
+        return count, wins, wr, prof, side_roi
+
+    h_bets, h_wins, h_win_rate, h_profit, h_roi = calc_side_metrics('HOME')
+    a_bets, a_wins, a_win_rate, a_profit, a_roi = calc_side_metrics('AWAY')
     
     summary = f"""
-2025 Backtest Summary (Binary Classifier + Isotonic Calibration):
+2025 Backtest Summary (Binary Classifier + Dual Calibration):
   -> Total Games Simulated: {len(results_df)}
   -> Total Bets Placed: {total_bets}
   -> Total Bets Won: {bets_won}
   -> Win Rate: {win_rate:.2%}
   -> Total Profit (Units): {total_profit:.2f}
   -> Simulated ROI: {roi:.2%}
+
+--- HOME Splits ---
+  -> Bets Placed: {h_bets}
+  -> Bets Won: {h_wins}
+  -> Win Rate: {h_win_rate:.2%}
+  -> Profit: {h_profit:.2f} Units
+  -> ROI: {h_roi:.2%}
+
+--- AWAY Splits ---
+  -> Bets Placed: {a_bets}
+  -> Bets Won: {a_wins}
+  -> Win Rate: {a_win_rate:.2%}
+  -> Profit: {a_profit:.2f} Units
+  -> ROI: {a_roi:.2%}
 """
     print(summary)
 

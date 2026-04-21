@@ -3,9 +3,13 @@ import joblib
 import numpy as np
 import os
 import json
+import sys
 from scipy.stats import poisson, nbinom
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import argparse
+
+# Ensure project root is in path for imports
+sys.path.append(os.getcwd())
 from tools.experiment_logger import logger
 from core.db_manager import MLBDbManager
 
@@ -208,17 +212,25 @@ def run_k_prop_backtest(label="K-Prop Backtest"):
         'final_bankroll': round(float(current_bankroll), 2)
     }
 
-    print("\n" + "="*40)
-    print(f"      2025 K-PROP KELLY SIMULATION: {label}")
-    print("="*40)
-    print(f"Total Model Edges Found: {bets_placed} Bets")
-    print(f"Hit Rate:                {hit_rate:.1f}% ({wins}/{bets_placed})")
-    print(f"Starting Bankroll:       ${initial_bankroll:,.2f}")
-    print(f"Final Bankroll:          ${current_bankroll:,.2f}")
-    print(f"Total Staked:            ${total_staked:,.2f}")
-    print(f"Total Profit:            ${total_profit:,.2f}")
-    print(f"Return on Investment:    {roi:+.2f}%")
-    print("="*40)
+    summary = f"""
+{"="*40}
+      2025 K-PROP KELLY SIMULATION: {label}
+{"="*40}
+Total Model Edges Found: {bets_placed} Bets
+Hit Rate:                {hit_rate:.1f}% ({wins}/{bets_placed})
+Starting Bankroll:       ${initial_bankroll:,.2f}
+Final Bankroll:          ${current_bankroll:,.2f}
+Total Staked:            ${total_staked:,.2f}
+Total Profit:            ${total_profit:,.2f}
+Return on Investment:    {roi:+.2f}%
+{"="*40}
+"""
+    print(summary)
+
+    # Export Summary
+    os.makedirs("reports", exist_ok=True)
+    with open("reports/backtest_k_props_summary.txt", "w") as f:
+        f.write(summary)
 
     # 5. Log to Experiment Registry
     logger.log_run(

@@ -1,0 +1,12 @@
+
+========================================
+      2025 K-PROP KELLY SIMULATION: Post-Feature Expansion Test
+========================================
+Total Model Edges Found: 3344 Bets
+Hit Rate:                62.2% (2081/3344)
+Starting Bankroll:       $1,000.00
+Final Bankroll:          $24,320.26
+Total Staked:            $271,916.94
+Total Profit:            $23,320.26
+Return on Investment:    +8.58%
+========================================
