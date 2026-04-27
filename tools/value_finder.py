@@ -25,28 +25,34 @@ class ValueFinder:
         return val_2026 or val_2025 or 0.0
 
     def find_value_today(self):
-        print(f"--- PRO VALUE FINDER (April 11, 2026) ---")
-        print(f"{'Matchup':<40} | {'Vegas Prob':<10} | {'Our Prob':<10} | {'Edge'}")
-        print("-" * 80)
-        
         # 1. Get Today's Market Odds from DB
         market_query = "SELECT * FROM betting_markets"
         games = self.manager.query_agent_data(market_query)
         
+        edges = []
         for g in games:
             # For this MVP, we use a simple projection: 
             # Compare Home Team overall ISO vs Away Team overall ISO (Weighted)
             # In a full model, you'd include SIERA and Bullpens.
             
             # Simple placeholder logic for 'Our Prob'
-            our_prob = 0.52 # Baseline
+            our_prob = g.get('model_prob_home')
+            if our_prob is None:
+                our_prob = 0.52 # Baseline fallback
+            
             vegas_prob = g['implied_prob_home'] or 0.5
             edge = our_prob - vegas_prob
             
             summary = f"{g['away_team']} @ {g['home_team']}"
             if abs(edge) > 0.02: # Show games with > 2% edge
-                print(f"{summary:<40} | {vegas_prob:<10.1%} | {our_prob:<10.1%} | {edge:+.1%}")
+                edges.append({
+                    "matchup": summary,
+                    "vegas_prob": vegas_prob,
+                    "our_prob": our_prob,
+                    "edge": edge
+                })
+        return edges
 
 if __name__ == "__main__":
     finder = ValueFinder()
-    finder.find_value_today()
+    print(finder.find_value_today())

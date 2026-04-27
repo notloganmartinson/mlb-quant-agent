@@ -1,0 +1,14 @@
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS model_prob_home REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS model_prob_away REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS full_game_home_moneyline INTEGER;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS full_game_away_moneyline INTEGER;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS full_game_total REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS implied_prob_home REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS home_sp_rolling_stuff REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS away_sp_rolling_stuff REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS home_lineup_pa INTEGER;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS away_lineup_pa INTEGER;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS home_sp_strikeouts REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS away_sp_strikeouts REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS home_lineup_k_pct REAL;
+ALTER TABLE betting_markets ADD COLUMN IF NOT EXISTS away_lineup_k_pct REAL;

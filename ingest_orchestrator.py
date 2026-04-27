@@ -10,6 +10,7 @@ from scripts.ingest.mlb_official_stats import ingest_mlb_official_stats
 from scripts.ingest.odds import fetch_odds_espn
 from scripts.ingest.environment import fetch_weather
 from scripts.fetch_live_odds import fetch_odds_api
+from ml.predict_today import predict_today
 
 def run_daily_stats_ingestion(season=2026):
     """
@@ -48,6 +49,10 @@ def run_odds_ingestion():
     # 2. ESPN Odds & Matchups (Keep in sync)
     print("Fetching updated ESPN odds...")
     fetch_odds_espn()
+
+    # 3. Daily Inference (Predict win probabilities for today's games)
+    print("Running Daily Inference...")
+    predict_today()
 
     print("--- Odds & CLV Ingestion Complete ---")
 

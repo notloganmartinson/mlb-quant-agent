@@ -9,7 +9,6 @@ class LineupAnalyzer:
     def get_todays_games(self):
         """Fetches today's game schedule and gamePks."""
         today = datetime.now().strftime("%Y-%m-%d")
-        print(f"Fetching game schedule for {today}...")
         sched = statsapi.schedule(date=today)
         return sched
 
@@ -61,11 +60,9 @@ class LineupAnalyzer:
             return None
 
     def run_daily_analysis(self):
-        """Iterates through all today's games and prints the lineup strength."""
+        """Iterates through all today's games and returns the lineup strength."""
         games = self.get_todays_games()
-        print(f"\n--- LIVE LINEUP ANALYSIS ({len(games)} Games) ---")
-        print(f"{'Matchup':<40} | {'Team':<20} | {'ISO':<6} | {'K%':<6}")
-        print("-" * 85)
+        analysis_results = []
 
         for g in games:
             game_pk = g['game_id']
@@ -74,12 +71,14 @@ class LineupAnalyzer:
             home_analysis = self.analyze_lineup(game_pk, 'home')
             away_analysis = self.analyze_lineup(game_pk, 'away')
 
-            if home_analysis:
-                print(f"{summary:<40} | {home_analysis['team']:<20} | {home_analysis['lineup_iso']:<6} | {home_analysis['lineup_k_pct']:<6}")
-            if away_analysis:
-                print(f"{'':<40} | {away_analysis['team']:<20} | {away_analysis['lineup_iso']:<6} | {away_analysis['lineup_k_pct']:<6}")
-            print("-" * 85)
+            analysis_results.append({
+                "matchup": summary,
+                "home_analysis": home_analysis,
+                "away_analysis": away_analysis
+            })
+            
+        return analysis_results
 
 if __name__ == "__main__":
     analyzer = LineupAnalyzer()
-    analyzer.run_daily_analysis()
+    print(analyzer.run_daily_analysis())

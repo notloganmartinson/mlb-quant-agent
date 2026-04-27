@@ -210,9 +210,12 @@ CREATE TABLE IF NOT EXISTS raw_pitches (
 
 # agent.py
 class MLBAgent:
-    def __init__(self, db_path): # Initializes the MLB Quant Agent with Dependency Injection for the database.
-    def execute_sql(self, query) -> str: # Executes a read-only SQL query against the mlb_betting SQLite database.
-    def get_live_schema(self) -> str: # Pulls the exact table structures directly from SQLite using the injected manager.
+    def __init__(self): # Initializes the MLB Quant Agent with Dependency Injection for the database.
+    def execute_sql(self, query) -> str: # Executes a read-only SQL query against the mlb_data PostgreSQL database.
+    def get_live_schema(self) -> str: # Pulls the exact table structures directly from PostgreSQL using the injected manager.
+    def fetch_daily_value(self) -> str: # Fetches structured daily value edges for MLB betting.
+    def fetch_lineup_analysis(self) -> str: # Fetches structured lineup analysis for today's games.
+    def refresh_data(self) -> str: # Manually triggers a full data refresh (stats, odds, and model predictions) for today's slate.
     def _get_config(self): # Builds the agent configuration with tools and dynamic system instruction.
     def run(self): # Starts the ReAct loop for the agent.
 def prompt_agent(): # Entry point for the script.
@@ -222,12 +225,18 @@ def run_daily_stats_ingestion(season): # Task 1: Heavy Stats & Environment
 def run_odds_ingestion(): # Task 2: Odds & CLV Tracking
 def start_scheduler():
 
+# debug_vi_html.py
+def debug_fetch():
+
+# debug_vi_scraped.py
+def debug_scrape():
+
 # tools/lineup_analyzer.py
 class LineupAnalyzer:
     def __init__(self):
     def get_todays_games(self): # Fetches today's game schedule and gamePks.
     def analyze_lineup(self, game_pk, team_type): # Fetches the starting lineup for a game and calculates weighted metrics.
-    def run_daily_analysis(self): # Iterates through all today's games and prints the lineup strength.
+    def run_daily_analysis(self): # Iterates through all today's games and returns the lineup strength.
 
 # tools/experiment_logger.py
 class QuantLogger:
@@ -255,6 +264,9 @@ def test_calculate_vaa_scalar():
 def test_calculate_vaa_none_raises():
 def test_calculate_break_magnitude():
 def test_calculate_rolling_stuff_plus_logic():
+
+# ml/predict_today.py
+def predict_today(): # Loads today's matchups from betting_markets, predicts the win probabilities
 
 # ml/preprocess.py
 def load_and_preprocess_data(db_path): # Loads data from historical_training_data and prepares it for XGBoost.
@@ -294,7 +306,7 @@ def calculate_rolling_stuff_plus(pitch_values, window, prior_val, prior_weight):
 
 # core/db_manager.py
 class MLBDbManager:
-    def __init__(self, db_path):
+    def __init__(self):
     def _get_connection(self):
     def __enter__(self): # Enable 'with MLBDbManager() as manager:' for bulk transactions.
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -304,14 +316,14 @@ class MLBDbManager:
     def upsert_many_hitting_lineups(self, data_list):
     def upsert_bullpen(self, data):
     def upsert_many_bullpens(self, data_list):
-    def upsert_betting_market(self, data): # Live prediction table with full ML feature set.
-    def upsert_historical_training_data(self, data): # Historical training table - 1:1 mirror of live features + Target + Closing Lines.
-    def upsert_sportsbook_odds(self, data): # Inserts or updates detailed odds for a specific sportsbook.
-    def upsert_raw_pitch(self, data): # Inserts a raw Statcast pitch for training.
-    def update_player_stuff_plus(self, player_id, season, stuff_plus): # Surgically update Stuff+ for a player/season.
-    def update_pitch_stuff_plus(self, pitch_id, stuff_plus): # Update individual pitch-level Stuff+.
-    def get_pitcher_prior_pitches(self, pitcher_id, game_date): # Fetches all Stuff+ values for a pitcher before a specific date.
-    def resolve_team_id(self, name) -> int: # Translates a team name into the canonical mlb_id.
+    def upsert_betting_market(self, data):
+    def upsert_historical_training_data(self, data):
+    def upsert_sportsbook_odds(self, data):
+    def upsert_raw_pitch(self, data):
+    def update_player_stuff_plus(self, player_id, season, stuff_plus):
+    def update_pitch_stuff_plus(self, pitch_id, stuff_plus):
+    def get_pitcher_prior_pitches(self, pitcher_id, game_date):
+    def resolve_team_id(self, name) -> int:
     def query_agent_data(self, sql_query):
 
 # scripts/patch_strikeout_data.py
@@ -345,6 +357,10 @@ def fetch_k_lines_for_event(event_id, date_str):
 def calculate_synthetic_line(sp_k_minus_bb, opp_lineup_k_pct): # Calculates a Vegas-style fair line based on rolling K metrics.
 def patch_synthetic_lines(manager, date): # Fallback method to calculate fair synthetic lines for backtesting.
 def update_k_lines():
+
+# scripts/fetch_historical_k_props_vi.py
+def fetch_vi_k_props_playwright(date_str): # Fetches strikeout prop lines from VegasInsider for a specific date using Playwright DOM scraping.
+def update_historical_k_props(date_limit):
 
 # scripts/fetch_historical_odds.py
 def fetch_sbr_odds_playwright(date_str):

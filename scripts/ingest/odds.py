@@ -42,7 +42,11 @@ def fetch_odds_espn():
                     "park_factor_runs": 1.0, "temperature": 72.0, "wind_speed": 4.0, "wind_direction": "Neutral",
                     "home_pitcher": None, "away_pitcher": None,
                     "full_game_home_moneyline": int(hml), "full_game_away_moneyline": int(aml), 
-                    "full_game_total": float(total), "implied_prob_home": iprob
+                    "full_game_total": float(total), "implied_prob_home": iprob,
+                    "home_sp_rolling_stuff": 100.0, "away_sp_rolling_stuff": 100.0,
+                    "home_lineup_pa": 500, "away_lineup_pa": 500,
+                    "home_sp_strikeouts": 5.5, "away_sp_strikeouts": 5.5,
+                    "home_lineup_k_pct": 0.22, "away_lineup_k_pct": 0.22
                 })
                 matchups.append({"game_id": gid, "home_team": home_team_name})
             print(f"Updated odds and pitchers for {len(events)} games.")
