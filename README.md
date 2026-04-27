@@ -1,6 +1,6 @@
 # MLB Betting Agent: Professional Data Engine
 
-A high-performance, modular data pipeline and calculation engine designed for quantitative MLB sports betting research. This system unifies disparate data sources (MLB StatsAPI, ESPN, The Odds API) into a relational SQLite database, providing a robust infrastructure for sabermetric modeling, backtesting, and autonomous market analysis.
+A high-performance, modular data pipeline and calculation engine designed for quantitative MLB sports betting research. This system unifies disparate data sources (MLB StatsAPI, ESPN, The Odds API) into a PostgreSQL database (currently transitioning from SQLite), providing a robust infrastructure for sabermetric modeling, backtesting, and autonomous market analysis.
 
 ## Core Features
 
@@ -18,14 +18,10 @@ A high-performance, modular data pipeline and calculation engine designed for qu
 mlb-agent/
 ├── core/                   # Mathematical and Database Foundation
 │   ├── schema.sql          # Centralized SQL schema (Source of Truth)
-│   ├── db_manager.py       # Object-oriented CRUD and connection management (CLV Aware)
+│   ├── db_manager.py       # Object-oriented CRUD and connection management (PostgreSQL)
 │   └── stats_calculator.py # Vectorized sabermetric formulas with fail-fast assertions
 ├── scripts/                # Automated Ingestion & Patching
 │   ├── ingest/             # Shattered, domain-specific ingestion modules
-│   │   ├── stats.py        # MLB official player/team stats
-│   │   ├── odds.py         # ESPN market data and matchups
-│   │   ├── environment.py  # Stadium coordinates and Density Altitude physics
-│   │   └── statcast.py     # Pitch-by-pitch Statcast data (Velocity, Movement, VAA)
 │   ├── fetch_live_odds.py  # High-frequency market data scraper (The Odds API)
 │   ├── fetch_historical_odds.py # Playwright-based historical odds harvester (SBR)
 │   ├── archive_daily_props.py # Daily proprietary odds archiver
@@ -38,18 +34,28 @@ mlb-agent/
 │   ├── backtest_k_props.py # Poisson CDF & Kelly Criterion simulation
 │   └── backtest.py         # Moneyline Kelly Criterion simulation (CLV Integrated)
 ├── tools/                  # Analytical & Research Interfaces
-│   ├── experiment_logger.py # Quant Experiment Registry utility
-│   ├── lineup_analyzer.py  # Real-time "Starting 9" offensive power analysis
-│   └── value_finder.py     # Multi-season weighted edge comparison engine
 ├── models/                 # Serialized Weights (XGBoost, Isotonic Calibration)
 ├── reports/                # Performance Registry and Artifacts
-│   ├── registry.db         # Immutable ledger of all model/backtest runs
-│   └── runs/               # Archived artifacts (PNGs, Models) for every run
+│   ├── registry.db         # Immutable ledger of all model/backtest runs (SQLite)
 ├── agent.py                # Class-based ReAct Agent with Dependency Injection
 ├── ingest_orchestrator.py  # Background scheduler for automated ingestion
-├── mlb_betting.db          # Local SQLite research database
-├── requirements.txt        # System dependencies
 └── GEMINI.md               # Token-optimized AST Repo Map for AI grounding
+```
+
+## Environment Setup
+
+Create a `.env` file in the project root with the following variables:
+```env
+# Database (PostgreSQL)
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=your_postgres_user
+DB_PASSWORD=your_postgres_password
+DB_NAME=mlb_data
+
+# APIs
+GEMINI_API_KEY=your_gemini_key
+ODDS_API_KEY=your_odds_api_key
 ```
 
 ## Research Workflow
@@ -77,6 +83,14 @@ Compare metrics across multiple runs via the registry.
 ```bash
 sqlite3 reports/registry.db "SELECT run_id, label, metrics FROM experiment_runs;"
 ```
+
+## Known Architectural Issues (Work in Progress)
+The codebase is currently undergoing a major architectural transition. The following issues are known and prioritized for fixing:
+1. **Database Schism:** Ingestion and the Agent use PostgreSQL, but the ML training pipeline (`ml/` scripts) is currently hardcoded for a legacy SQLite database, causing training data to be disconnected from live data.
+2. **Production-Training Skew:** `scripts/ingest/odds.py` currently populates live betting markets with hardcoded dummy metrics (e.g., SIERA 4.20) rather than dynamically calculating them, skewing live model predictions.
+3. **Fragile ID Management:** Live odds ingestion (`fetch_live_odds.py`) uses non-deterministic `hash()` for game IDs, which causes data duplication across restarts.
+4. **Broken Migrations:** `scripts/migrate.py` contains SQLite syntax running over a PostgreSQL connection.
+5. **Missing Season Context:** Several analytical tools omit the `season` filter, risking data corruption when multiple years are ingested.
 
 ## Security & Design Principles
 - **Strict Idempotency:** All ingestion and migration scripts are designed to safely resume after interruptions.
